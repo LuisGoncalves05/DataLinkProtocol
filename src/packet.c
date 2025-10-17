@@ -4,12 +4,12 @@
 // Return size of packet on success or -1 on error.
 int buildDataPacket(unsigned char *packet, unsigned char *data, size_t size) {
     if (NULL == packet || NULL == data) {
-        printf("ERROR: NULL parameter packet: %p data: %p\n", packet, data);
+        printf("ERROR: NULL parameter packet: %p data: %p.\n", packet, data);
         return -1;
     }
 
     if (size > MAX_DATA_FIELD_SIZE) {
-        printf("ERROR: size too big, %zu\n", size);
+        printf("ERROR: size too big, %zu.\n", size);
         return -1;
     }
 
@@ -25,7 +25,7 @@ int buildDataPacket(unsigned char *packet, unsigned char *data, size_t size) {
 // Return size of packet on success or -1 on error.
 int buildControlPacket(unsigned char *packet, PacketControlField control, size_t size, const char *filename) {
     if (NULL == packet || NULL == filename) {
-        printf("ERROR: NULL parameter packet=%p filename=%p\n", packet, filename);
+        printf("ERROR: NULL parameter packet=%p filename=%p.\n", packet, filename);
         return -1;
     }
 
@@ -34,7 +34,7 @@ int buildControlPacket(unsigned char *packet, PacketControlField control, size_t
         case PCF_END:
             break;
         default:
-            printf("ERROR: Unknown control field, %d\n", control);
+            printf("ERROR: Unknown control field, %d.\n", control);
             return -1;
     }
 
@@ -65,7 +65,7 @@ int buildControlPacket(unsigned char *packet, PacketControlField control, size_t
 
 int readDataPacket(unsigned char *packet, unsigned char *data, size_t *size) {
     if (NULL == packet || NULL == data || NULL == size) {
-        printf("ERROR: NULL parameter packet:%p data:%p size:%p\n", packet, data, size);
+        printf("ERROR: NULL parameter packet:%p data:%p size:%p.\n", packet, data, size);
         return -1;
     }
     PacketControlField control = packet[0];
@@ -79,7 +79,7 @@ int readDataPacket(unsigned char *packet, unsigned char *data, size_t *size) {
 
 int readControlPacket(unsigned char *packet, PacketControlField *control, size_t *size, char *filename) {
     if (NULL == packet || NULL == control || NULL == size || NULL == filename) {
-        printf("ERROR: NULL parameter packet:%p control:%p size:%p filename:%p\n",
+        printf("ERROR: NULL parameter packet:%p control:%p size:%p filename:%p.\n",
                packet, control, size, filename);
         return -1;
     }
@@ -92,7 +92,7 @@ int readControlPacket(unsigned char *packet, PacketControlField *control, size_t
         case PCF_END:
             break;
         default:
-            printf("ERROR: Invalid control field, %d\n", *control);
+            printf("ERROR: Invalid control field, %d.\n", *control);
             return -1;
     }
 
@@ -117,7 +117,7 @@ int readControlPacket(unsigned char *packet, PacketControlField *control, size_t
                 break;
 
             default:
-                printf("ERROR: Unknown parameter type, %d\n", type);
+                printf("ERROR: Unknown parameter type, %d.\n", type);
                 return -1;
         }
     }
@@ -127,16 +127,18 @@ int readControlPacket(unsigned char *packet, PacketControlField *control, size_t
 
 int isStartPacket (unsigned char *packet) {
     if (NULL == packet) {
-        printf("ERROR: NULL parameter packet\n");
+        printf("ERROR: NULL parameter packet.\n");
         return -1; 
     }
+
     return PCF_START == packet[0]; 
 }
 
 int isEndPacket (unsigned char *packet) {
     if (NULL == packet) {
-        printf("ERROR: NULL parameter packet\n");
+        printf("ERROR: NULL parameter packet.\n");
         return -1; 
     }
+    
     return PCF_END == packet[0]; 
 }

@@ -8,28 +8,7 @@
 
 int alarmEnabled = FALSE;
 int timeout;
-
-// Alter this for stuffing 
-unsigned char controlPacket[CONTROL_PACKET_SIZE];
-unsigned char informationPacket[INFORMATION_FRAME_BASE_SIZE + MAX_PAYLOAD_SIZE];
-
-void SendPacket(int signal) {
-    alarmEnabled = FALSE;
-
-    int ret = writeBytesSerialPort(bytes, BUF_SIZE);
-    if (ret == -1) {
-        printf("Error writing to serial port.\n");
-    } else {
-        printf("5 bytes written to serial port: ");
-        for (int i = 0; i < BUF_SIZE; i++) {
-            printf("byte %d = 0x%02X, ", i, bytes[i]);
-        }
-        printf("\n");
-    }
-
-    alarm(3);
-    alarmEnabled = TRUE;
-}
+unsigned char packet[INFORMATION_FRAME_BASE_SIZE + 2 * MAX_PAYLOAD_SIZE + 1]; // All the payload can be byte stuffed as well as well as bcc2
 
 ////////////////////////////////////////////////
 // LLOPEN
