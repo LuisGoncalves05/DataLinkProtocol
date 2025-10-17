@@ -13,11 +13,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
     int transmitter = 0 == strcmp(role, "tx");
     const char *mode = transmitter ? "rb" : "wb";
 
-    FILE *file = fopen(filename, mode);
-    if (NULL == file) {
-        printf("ERROR: Couldn't open %s.\n", filename);
-        return;
-    }
+    FILE *file;
 
     if (transmitter) {
         LinkLayer params = {
@@ -68,18 +64,40 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
             return; 
         }
 
-        int read = llread(packet);
-        while (-1 != read) {
+        while (!isStartPacket(packet)){
+            if (-1 == llread(packet)) {
+                printf("ERROR: Couldn't read file.\n");
+                return; 
+            } 
+        }
+        
+        PacketControlField control;
+        size_t size;
+        char readFilename[MAX_FILENAME_SIZE];
+        if(-1 == readControlPacket(packet, &control, &size, readFilename)) {
+            printf("ERROR: Reading control packet failed.\n");
+            goto cleanup;
+        }
+
+        file = fopen(readFilename, "w");
+        if (NULL == file) {
+            printf("ERROR: Couldn't open %s.\n", readFilename);
+            //llclose()
+            return;
+        }
+
+        while (!isEndPacket(packet)) {
+            int read = llread(packet);
+            if (-1 == read) {
+                printf("ERROR: Couldn't read file.\n");
+                goto cleanup; 
+            }
+            
             size_t written = fwrite(packet, sizeof(unsigned char), read, file);
             if (written < read) {
                 printf("ERROR: Error in %s.\n", filename);
-                break;
+                goto cleanup; 
             }
-            read = llread(packet);
-        }
-
-        if (-1 == llclose(params)) {
-            printf("ERROR: Couldn't close connection.\n");
         }
     }
 
