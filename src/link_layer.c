@@ -6,32 +6,16 @@
 // MISC
 #define _POSIX_SOURCE 1 // POSIX compliant source
 
-
 int alarmEnabled = FALSE;
-int almc = 0;
+int timeout;
 
-void receiveUA() {
-    int counter = 0;
-    while (STOP == FALSE)
-    {
-        unsigned char byte;
-        int received = readByteSerialPort(&byte);
-        
-        if (1 == received) {
-            
-        }
-        if (counter == BUF_SIZE) {
-            STOP = TRUE;
-            alarmEnabled = FALSE;
-        }
-    }
-}
+// Alter this for stuffing 
+unsigned char controlPacket[CONTROL_PACKET_SIZE];
+unsigned char informationPacket[INFORMATION_FRAME_BASE_SIZE + MAX_PAYLOAD_SIZE];
 
+void SendPacket(int signal) {
+    alarmEnabled = FALSE;
 
-// Alarm function handler.
-// This function will run whenever the signal SIGALRM is received.
-void sigalarmHandler(int signal)
-{
     int ret = writeBytesSerialPort(bytes, BUF_SIZE);
     if (ret == -1) {
         printf("Error writing to serial port.\n");
@@ -42,39 +26,34 @@ void sigalarmHandler(int signal)
         }
         printf("\n");
     }
-    
-    alarmEnabled = TRUE;
+
     alarm(3);
+    alarmEnabled = TRUE;
 }
-
-sendPacketTransmitter
-
-
 
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
-int llopen(LinkLayer connectionParameters)
-{
+int llopen(LinkLayer connectionParameters) {
     if (-1 == openSerialPort(connectionParamenters.serialPort, connectionParamenters.baudRate)) {
         return -1;
     }
+    timeout = coconnectionParameters.timeout;
 
     if (LlTx == connectionParamenters.role) {
-        unsigned char *packet = malloc(CONTROL_PACKET_SIZE)
-        if (-1 == makePacketControl(F_FLAG, A_SEND_TRANSMITTER, C_SET)) {
+        if (-1 == makePacketControl(F_FLAG, A_SEND_TRANSMITTER, C_SET, packet)) {
             return -1;
         }
         if (-1 == sendPacketTransmitter(packet)) {
             return -1;
         }
 
-        alarm(coconnectionParameters.timeout);
+        alarm(timeout);
 
         int state = 0;
         int idx = 0;
-        unsigned char *byte = malloc(sizeof(unsigned char));
-        while (state != 5) {
+        unsigned char byte[1];
+        while (state != STOP) {
             int retv = readByteSerialPort(byte);
             if (-1 == retv) {
                 return -1;
@@ -82,67 +61,13 @@ int llopen(LinkLayer connectionParameters)
                 continue;
             }
 
-            switch (state) {
-                case 0:
-                    if (F_FLAG == *byte) {
-                        packet[idx++] = byte;
-                        state = 1;
-                    }
-                    break;
-                case 1:
-                    if (A_REPLY_RECEIVER == *byte) {
-                        packet[idx++] = byte;
-                        state = 2;
-                    } else if (F_FLAG == *byte) {
-                        // Stay in the same state
-                    } else {
-                        idx = 0;
-                        state = 0;
-                    }
-                    break;
-                case 2:
-                    if (C_RR1 == *byte) {
-                        packet[idx++] = byte;
-                        state = 3;
-                    } else if (F_FLAG == *byte) {
-                        idx = 1;
-                        state = 1;
-                    } else {
-                        idx = 0;
-                        state = 0;
-                    }
-                    break;
-                case 3:
-                    unsigned char A = packet[1];
-                    unsigned char C = packet[2];
-                    unsigned char BCC = packet[3];
-                    if (A^C == BCC) {
-                        packet[idx++] = byte;
-                        state = 4;
-                    } else if (F_FLAG == *byte) {
-                        idx = 1;
-                        state = 1;
-                    } else {
-                        idx = 0;
-                        state = 0;
-                    }
-                    break;
-                case 4:
-                    if (F_FLAG == *byte) {
-                        packet[idx++] = byte;
-                        state = 5;
-                    } else {
-                        idx = 0;
-                        state = 0;
-                    }
-                    break;
+            if (-1 == nextStateControl(&state, byte, packet, &idx)) {
+                return -1;
             }
         }
 
-        free(packet);
-        free(byte);
+        return 0;
     } else {
-
     }
 
     return 0;
@@ -151,8 +76,7 @@ int llopen(LinkLayer connectionParameters)
 ////////////////////////////////////////////////
 // LLWRITE
 ////////////////////////////////////////////////
-int llwrite(const unsigned char *buf, int bufSize)
-{
+int llwrite(const unsigned char *buf, int bufSize) {
     // TODO: Implement this function
 
     return 0;
@@ -161,8 +85,7 @@ int llwrite(const unsigned char *buf, int bufSize)
 ////////////////////////////////////////////////
 // LLREAD
 ////////////////////////////////////////////////
-int llread(unsigned char *packet)
-{
+int llread(unsigned char *packet) {
     // TODO: Implement this function
 
     return 0;
@@ -171,8 +94,7 @@ int llread(unsigned char *packet)
 ////////////////////////////////////////////////
 // LLCLOSE
 ////////////////////////////////////////////////
-int llclose()
-{
+int llclose() {
     // TODO: Implement this function
 
     return 0;

@@ -2,8 +2,10 @@
 
 #include "application_layer.h"
 #include "link_layer.h"
+#include "packet.h"
 
 #include <stdio.h>
+
 
 void applicationLayer(const char *serialPort, const char *role, int baudRate, int nTries, int timeout, const char *filename) {
     unsigned char packet[MAX_PAYLOAD_SIZE];
@@ -29,6 +31,9 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
             printf("ERROR: Couldn't open connection.\n");
             goto cleanup;
         }
+
+        // Send start packet
+        int packetSize = buildControlPacket(packet, PCF_START, size, filename);
 
         while (TRUE) {
             size_t read = fread(packet, sizeof(unsigned char), MAX_PAYLOAD_SIZE, file);

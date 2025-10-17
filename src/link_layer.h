@@ -4,24 +4,7 @@
 #ifndef _LINK_LAYER_H_
 #define _LINK_LAYER_H_
 
-#define F_FLAG 0x7E
-
-#define A_SEND_TRANSMITTER 0x03
-#define A_REPLY_RECEIVER 0x03
-#define A_SEND_RECEIVER 0x01
-#define A_REPLY_TRANSMITTER 0x01
-
-#define C_SET 0x03
-#define C_UA 0x07
-#define C_RR0 0xAA
-#define C_RR1 0xAB
-#define C_REJ0 0x54
-#define C_REJ1 0x55
-#define C_DISC 0x0B
-
-#define CONTROL_PACKET_SIZE 5
-typedef enum
-{
+typedef enum {
     LlTx,
     LlRx,
 } LinkLayerRole;
@@ -58,11 +41,5 @@ int llread(unsigned char *packet);
 // Close previously opened connection and print transmission statistics in the console.
 // Return 0 on success or -1 on error.
 int llclose();
-
-int makePacketData(const unsigned char F, const unsigned char A, const unsigned char C, const unsigned char *buf, unsigned char *packet);
-
-int makePacketControl(const unsigned char F, const unsigned char A, const unsigned char C, unsigned char *packet);
-
-int readPacket(unsigned char *buf);
 
 #endif // _LINK_LAYER_H_
