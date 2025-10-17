@@ -20,6 +20,15 @@ typedef enum {
 
 #define NUM_PARAMETERS_CONTROL_PACKET 2
 
+// Check if it is an START packet.
+// Return -1 if NULL, TRUE if is START packet, else FALSE 
+int isStartPacket (unsigned char *packet); 
+
+
+// Check if it is an END packet.
+// Return -1 if NULL, TRUE if is END packet, else FALSE 
+int isEndPacket (unsigned char *packet); 
+
 
 // Sets the fields of the data packet.
 // Return size of packet on success or -1 on error.

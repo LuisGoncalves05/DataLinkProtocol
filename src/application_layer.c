@@ -65,7 +65,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
 
         if (-1 == llopen(params)) {
             printf("ERROR: Couldn't open connection.\n");
-            goto cleanup;
+            return; 
         }
 
         int read = llread(packet);

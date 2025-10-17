@@ -124,3 +124,19 @@ int readControlPacket(unsigned char *packet, PacketControlField *control, size_t
 
     return 0;
 }
+
+int isStartPacket (unsigned char *packet) {
+    if (NULL == packet) {
+        printf("ERROR: NULL parameter packet\n");
+        return -1; 
+    }
+    return PCF_START == packet[0]; 
+}
+
+int isEndPacket (unsigned char *packet) {
+    if (NULL == packet) {
+        printf("ERROR: NULL parameter packet\n");
+        return -1; 
+    }
+    return PCF_END == packet[0]; 
+}
