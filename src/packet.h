@@ -2,6 +2,7 @@
 #define _PACKET_H_
 
 #include "link_layer.h"
+#include <stddef.h>
 
 // Payload has a limited number of bytes, and each data packet needs C, L2 and L1 bytes and Data therefore lowering that size by 3
 #define MAX_DATA_FIELD_SIZE (MAX_PAYLOAD_SIZE - 3)

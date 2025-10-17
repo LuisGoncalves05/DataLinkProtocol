@@ -1,4 +1,7 @@
 #include "packet.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 // Sets the fields of the data packet.
 // Return size of packet on success or -1 on error.
@@ -68,7 +71,13 @@ int readDataPacket(unsigned char *packet, unsigned char *data, size_t *size) {
         printf("ERROR: NULL parameter packet:%p data:%p size:%p.\n", packet, data, size);
         return -1;
     }
+    
     PacketControlField control = packet[0];
+    if (PCF_DATA != control) {
+        printf("ERROR: Unknown packet control field=%d.\n", control);
+        return -1;
+    }
+
     *size = (packet[1] << 8) + packet[2];
     packet += 3;
 
@@ -125,20 +134,20 @@ int readControlPacket(unsigned char *packet, PacketControlField *control, size_t
     return 0;
 }
 
-int isStartPacket (unsigned char *packet) {
+int isStartPacket(unsigned char *packet) {
     if (NULL == packet) {
         printf("ERROR: NULL parameter packet.\n");
-        return -1; 
+        return -1;
     }
 
-    return PCF_START == packet[0]; 
+    return PCF_START == packet[0];
 }
 
-int isEndPacket (unsigned char *packet) {
+int isEndPacket(unsigned char *packet) {
     if (NULL == packet) {
         printf("ERROR: NULL parameter packet.\n");
-        return -1; 
+        return -1;
     }
-    
-    return PCF_END == packet[0]; 
+
+    return PCF_END == packet[0];
 }
