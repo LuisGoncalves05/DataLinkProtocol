@@ -1,51 +1,24 @@
 // Link layer protocol implementation
 
 #include "link_layer.h"
+#include "link_layer_utils.h"
 #include "serial_port.h"
 
 // MISC
 #define _POSIX_SOURCE 1 // POSIX compliant source
 
-int alarmEnabled = FALSE;
-int timeout;
-unsigned char packet[INFORMATION_FRAME_BASE_SIZE + 2 * MAX_PAYLOAD_SIZE + 1]; // All the payload can be byte stuffed as well as well as bcc2
+// Information frame has the same fields as control frame with 2 more, the payload and respective bcc that can be byte stuffed
+unsigned char packet[CONTROL_FRAME_SIZE + 2 * (MAX_PAYLOAD_SIZE + 1)];
 
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
 int llopen(LinkLayer connectionParameters) {
-    if (-1 == openSerialPort(connectionParamenters.serialPort, connectionParamenters.baudRate)) {
+    if (-1 == openSerialPort(connectionParameters.serialPort, connectionParameters.baudRate)) {
         return -1;
     }
-    timeout = coconnectionParameters.timeout;
 
-    if (LlTx == connectionParamenters.role) {
-        if (-1 == makePacketControl(F_FLAG, A_SEND_TRANSMITTER, C_SET, packet)) {
-            return -1;
-        }
-        if (-1 == sendPacketTransmitter(packet)) {
-            return -1;
-        }
-
-        alarm(timeout);
-
-        int state = 0;
-        int idx = 0;
-        unsigned char byte[1];
-        while (state != STOP) {
-            int retv = readByteSerialPort(byte);
-            if (-1 == retv) {
-                return -1;
-            } else if (0 == retv) {
-                continue;
-            }
-
-            if (-1 == nextStateControl(&state, byte, packet, &idx)) {
-                return -1;
-            }
-        }
-
-        return 0;
+    if (LlTx == connectionParameters.role) {
     } else {
     }
 
