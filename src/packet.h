@@ -25,13 +25,13 @@ typedef enum {
 // Return size of packet on success or -1 on error.
 int buildDataPacket(unsigned char *packet, unsigned char *data, size_t size);
 
-// Sets the fields of the control packet.
-// Return size of packet on success or -1 on error.
-int buildControlPacket(unsigned char *packet, PacketControlField control, size_t size, const char *filename);
-
 // Reads the fields from the data packet.
 // Return size of packet on success or -1 on error.
 int readDataPacket(unsigned char *packet, unsigned char *data, size_t *size);
+
+// Sets the fields of the control packet.
+// Return size of packet on success or -1 on error.
+int buildControlPacket(unsigned char *packet, PacketControlField control, size_t size, const char *filename);
 
 // Reads the fields from the control packet.
 // Return size of packet on success or -1 on error.

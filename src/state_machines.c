@@ -133,20 +133,6 @@ int nextStateInformation(InformationState *state, unsigned char *byte, unsigned 
             break;
         }
         case INFORMATION_READING_DATA:
-            if (idx <) {
-                *state = INFORMATION_READING_DATA;
-                frame[(*idx)++] = *byte;
-            } else if (idx ==) {
-                *state = INFORMATION_BCC2_RECEIVED;
-            } else if (F_FLAG == *byte) {
-                *idx = 1;
-                *state = INFORMATION_F_RECEIVED;
-            } else {
-                *idx = 0;
-                *state = INFORMATION_START;
-            }
-            break;
-        case INFORMATION_BCC2_RECEIVED:
             if (F_FLAG == *byte) {
                 frame[(*idx)++] = *byte;
                 *state = INFORMATION_STOP;

@@ -24,6 +24,26 @@ int buildDataPacket(unsigned char *packet, unsigned char *data, size_t size) {
     return size + 3;
 }
 
+int readDataPacket(unsigned char *packet, unsigned char *data, size_t *size) {
+    if (NULL == packet || NULL == data || NULL == size) {
+        printf("ERROR: NULL parameter packet:%p data:%p size:%p.\n", packet, data, size);
+        return -1;
+    }
+
+    PacketControlField control = packet[0];
+    if (PCF_DATA != control) {
+        printf("ERROR: Unknown packet control field=%d.\n", control);
+        return -1;
+    }
+
+    *size = (packet[1] << 8) + packet[2];
+    packet += 3;
+
+    memcpy(data, packet, *size);
+
+    return 0;
+}
+
 // Sets the fields of the control packet.
 // Return size of packet on success or -1 on error.
 int buildControlPacket(unsigned char *packet, PacketControlField control, size_t size, const char *filename) {
@@ -64,26 +84,6 @@ int buildControlPacket(unsigned char *packet, PacketControlField control, size_t
     packet += 2 + packet[1];
 
     return packet - initialPacket;
-}
-
-int readDataPacket(unsigned char *packet, unsigned char *data, size_t *size) {
-    if (NULL == packet || NULL == data || NULL == size) {
-        printf("ERROR: NULL parameter packet:%p data:%p size:%p.\n", packet, data, size);
-        return -1;
-    }
-    
-    PacketControlField control = packet[0];
-    if (PCF_DATA != control) {
-        printf("ERROR: Unknown packet control field=%d.\n", control);
-        return -1;
-    }
-
-    *size = (packet[1] << 8) + packet[2];
-    packet += 3;
-
-    memcpy(data, packet, *size);
-
-    return 0;
 }
 
 int readControlPacket(unsigned char *packet, PacketControlField *control, size_t *size, char *filename) {

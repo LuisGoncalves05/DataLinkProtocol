@@ -13,22 +13,19 @@
 
 #define C_SET 0x03
 #define C_UA 0x07
-#define C_RR0 0xAA
-#define C_RR1 0xAB
-#define C_REJ0 0x54
-#define C_REJ1 0x55
+#define C_RR(n) (0xAA + (n))
+#define C_REJ(n) (0x54 + (n))
 #define C_DISC 0x0B
 #define VALID_C_CONTROL(byte) (C_SET == (byte) ||  \
                                C_UA == (byte) ||   \
-                               C_RR0 == (byte) ||  \
-                               C_RR1 == (byte) ||  \
-                               C_REJ0 == (byte) || \
-                               C_REJ1 == (byte) || \
+                               C_RR(0) == (byte) ||  \
+                               C_RR(1) == (byte) ||  \
+                               C_REJ(0) == (byte) || \
+                               C_REJ(1) == (byte) || \
                                C_DISC == (byte))
 
-#define C_FRAME0 0x00
-#define C_FRAME1 0x80
-#define VALID_C_INFORMATION(byte) (C_FRAME0 == (byte) || C_FRAME1 == (byte))
+#define C_FRAME(n) ((n) << 7)
+#define VALID_C_INFORMATION(byte) (C_FRAME(0) == (byte) || C_FRAME(1) == (byte))
 
 #define CONTROL_FRAME_SIZE 5
 

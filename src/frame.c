@@ -10,7 +10,7 @@ int byteStuff(unsigned char *frame, size_t size) {
         return -1;
     }
 
-    // excluding first and last bytes to mantain the real flags
+    // excluded first and last bytes to mantain the real flags
     unsigned char copy[size];
     memcpy(copy, frame, size);
     size_t frameIdx = CONTROL_FRAME_SIZE - 1; // jump F A C and BCC
@@ -23,6 +23,28 @@ int byteStuff(unsigned char *frame, size_t size) {
         }
     }
 
+    // keep last element as an untouched flag
+    frame[frameIdx++] = F_FLAG;
+    return frameIdx;
+}
+
+int byteDeStuff(unsigned char *frame, size_t size) {
+    if (NULL == frame) {
+        printf("ERROR: NULL parameter frame.\n");
+        return -1;
+    }
+    // excluded first and last bytes to maintain the real flags
+    unsigned char copy[size];
+    memcpy(copy, frame, size);
+    size_t frameIdx = CONTROL_FRAME_SIZE - 1; // jump F A C and BCC
+    for (size_t i = CONTROL_FRAME_SIZE - 1; i < size - 1; i++, frameIdx++) {
+        if (ESCAPE == copy[i]) {
+            i++;
+            frame[frameIdx] = ESCAPE_REPLACE(copy[i]);
+        } else {
+            frame[frameIdx] = copy[i];
+        }
+    }
     // keep last element as an untouched flag
     frame[frameIdx++] = F_FLAG;
     return frameIdx;
@@ -52,7 +74,7 @@ int buildControlFrame(unsigned char *frame, int addressField, int controlField) 
     return 0;
 }
 
-int buildInformationFrame(unsigned char *frame, int addressField, int controlField, unsigned char *data, size_t size) {
+int buildInformationFrame(unsigned char *frame, int addressField, int controlField, const unsigned char *data, size_t size) {
     if (NULL == frame) {
         printf("ERROR: NULL parameter frame.\n");
         return -1;
@@ -91,3 +113,50 @@ int buildInformationFrame(unsigned char *frame, int addressField, int controlFie
     return frame - originalFrame;
 }
 
+int sendControlFrame(unsigned char *frame, int addressField, int controlField) {
+    if (-1 == buildControlFrame(frame, addressField, controlField)) {
+        return -1;
+    }
+
+    if (-1 == writeBytesSerialPort(frame, CONTROL_FRAME_SIZE)) {
+        return -1;
+    }
+
+    return 0;
+}
+
+int frameIsType(unsigned char *frame, int controlField) {
+    return frame[3] == controlField;
+}
+
+int receiveControlFrame(unsigned char *frame, ControlState *state) {
+    *state = CONTROL_START;
+    unsigned char byte;
+    unsigned int idx = 0;
+    while (CONTROL_STOP != *state) {
+        if (-1 == readByteSerialPort(&byte)) {
+            return -1;
+        }
+        if (-1 == nextStateControl(state, &byte, frame, &idx)) {
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+int receiveInformationFrame(unsigned char *frame, InformationState *state) {
+    *state = INFORMATION_START;
+    unsigned char byte;
+    unsigned int idx = 0;
+    while (INFORMATION_STOP != *state) {
+        if (-1 == readByteSerialPort(&byte)) {
+            return -1;
+        }
+        if (-1 == nextStateInformation(state, &byte, frame, &idx)) {
+            return -1;
+        }
+    }
+
+    return idx;
+}
