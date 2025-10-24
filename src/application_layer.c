@@ -137,16 +137,27 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
             return;
         }
 
+        if (-1 == llread(packet)) {
+            printf("ERROR: Couldn't read file.\n");
+            goto cleanup;
+        }
+
         while (!isEndPacket(packet)) {
-            int read = llread(packet);
-            if (-1 == read) {
-                printf("ERROR: Couldn't read file.\n");
+            size_t read;
+            unsigned char data[MAX_DATA_FIELD_SIZE];
+            if (-1 == readDataPacket(packet, data, &read)) {
+                printf("ERROR: Couldn't read data packet\n");
                 goto cleanup;
             }
 
-            size_t written = fwrite(packet, sizeof(unsigned char), read, file);
-            if (written < (size_t)read) {
+            size_t written = fwrite(data, sizeof(unsigned char), read, file);
+            if (written < read) {
                 printf("ERROR: Error in %s.\n", filename);
+                goto cleanup;
+            }
+
+            if (-1 == llread(packet)) {
+                printf("ERROR: Couldn't read file.\n");
                 goto cleanup;
             }
         }
