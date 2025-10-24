@@ -65,6 +65,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
 
         // Send start packet
         int packetSize = buildControlPacket(packet, PCF_START, fileSize, filename);
+
         if (-1 == llwrite(packet, packetSize)) {
             printf("ERROR: llwrite failed.\n");
             goto cleanup;
@@ -111,7 +112,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
         }
 
         while (!isStartPacket(packet)) {
-            if (-1 == llread(packet)) {
+            int read = llread(packet);
+            if (-1 == read) {
                 printf("ERROR: Couldn't read file.\n");
                 return;
             }
@@ -125,9 +127,10 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
             goto cleanup;
         }
 
-        file = fopen(readFilename, "w");
+        printf("%s\n", readFilename);
+        file = fopen(filename, "wb");
         if (NULL == file) {
-            printf("ERROR: Couldn't open %s.\n", readFilename);
+            printf("ERROR: Couldn't open %s.\n", filename);
             if (-1 == llclose()) {
                 printf("ERROR: Couldn't close connection.\n");
             }

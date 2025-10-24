@@ -135,18 +135,18 @@ int receiveControlFrame(unsigned char *frame, ControlState *state) {
     unsigned int idx = 0;
     while (CONTROL_STOP != *state) {
         if (-1 == readByteSerialPort(&byte)) {
-            printf("Byte read error: %02X\n", byte);
+            //printf("Byte read error: %02X\n", byte);
             return -1;
         }
-        printf("Control state before: %d\n", *state);
-        printf("Byte is read: %02X\n", byte);
+        //printf("Control state before: %d\n", *state);
+        //printf("Byte is read: %02X\n", byte);
         if (-1 == nextStateControl(state, &byte, frame, &idx)) {
             return -1;
         }
-        printf("Control state after: %d\n", *state);
+        //printf("Control state after: %d\n", *state);
     }
 
-    printf("Received a control frame\n");
+    //printf("Received a control frame\n");
 
     return 0;
 }
@@ -157,12 +157,18 @@ int receiveInformationFrame(unsigned char *frame, InformationState *state) {
     unsigned int idx = 0;
     while (INFORMATION_STOP != *state) {
         if (-1 == readByteSerialPort(&byte)) {
+            //printf("Byte read error: %02X\n", byte);
             return -1;
         }
+        //printf("Information state before: %d\n", *state);
+        //printf("Byte is read: %02X\n", byte);
         if (-1 == nextStateInformation(state, &byte, frame, &idx)) {
             return -1;
         }
+        //printf("Information state after: %d\n", *state);
     }
+
+    //printf("Received an information frame\n");
 
     return idx;
 }

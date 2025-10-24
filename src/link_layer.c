@@ -103,6 +103,7 @@ int llread(unsigned char *packet) {
     // Receive I frame
     InformationState state = CONTROL_START;
     int frame_size;
+
     do {
         frame_size = receiveInformationFrame(frame, &state);
     } while (-1 == frame_size);
@@ -112,37 +113,38 @@ int llread(unsigned char *packet) {
         return -1;
     }
 
-    unsigned char received_bcc2 = frame[frame_size - 2]; // BCC2 is the byte received before the flag
-    unsigned char checked_bcc2 = frame[4];
-    for (size_t i = 5; i < frame_size - 1; i++) {
+    int data_start = 4;
+    int data_end = frame_size - 2;
+    unsigned char received_bcc2 = frame[data_end]; // BCC2 is the byte received before the flag
+    unsigned char checked_bcc2 = frame[data_start];
+    for (size_t i = 5; i < data_end; i++) {
         checked_bcc2 ^= frame[i];
     }
 
-    if (checked_bcc2 != received_bcc2) {
-        if (frameIsType(frame, C_FRAME(frame_number))) {
-            // Send RR frame
-            if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_REJ(frame_number))) {
-                return -1;
-            }
-        } else {
+    if (frameIsType(frame, C_FRAME(frame_number))) {
+        if (checked_bcc2 == received_bcc2) {
+            int data_size = data_end - data_start;
+            memcpy(packet, &frame[data_start], data_size);
+
+            frame_number = !frame_number;
             // Send RR frame
             if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_RR(frame_number))) {
                 return -1;
             }
+        } else {
+            // Send Rej frame
+            if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_REJ(frame_number))) {
+                return -1;
+            }
         }
+
     } else {
         // Send RR frame
         if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_RR(frame_number))) {
             return -1;
         }
-
-        if (frameIsType(frame, C_FRAME(frame_number))) {
-            frame_number = !frame_number;
-            memcpy(packet, &frame[5], (frame_size - 1) - 5);
-        } else {
-            // Discard frame
-        }
     }
+
     return 0;
 }
 
