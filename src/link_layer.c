@@ -5,6 +5,7 @@
 #include "link_layer_utils.h"
 #include "serial_port.h"
 #include <string.h>
+#include <stdio.h>
 
 // MISC
 #define _POSIX_SOURCE 1 // POSIX compliant source
@@ -38,7 +39,6 @@ int llopen(LinkLayer connectionParameters) {
                 return -1;
             }
         } while (!frameIsType(frame, C_UA));
-
     } else {
         // Receive SET frame
         ControlState state = CONTROL_START;
@@ -138,7 +138,7 @@ int llread(unsigned char *packet) {
 
         if (frameIsType(frame, C_FRAME(frame_number))) {
             frame_number = !frame_number;
-            memcpy(packet, &frame[5], (frame_size-1) - 5);
+            memcpy(packet, &frame[5], (frame_size - 1) - 5);
         } else {
             // Discard frame
         }

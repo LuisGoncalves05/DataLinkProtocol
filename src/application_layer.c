@@ -103,7 +103,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
         }
 
     } else {
-        params = createLinkLayer(serialPort, LlTx, baudRate, nTries, timeout);
+        params = createLinkLayer(serialPort, LlRx, baudRate, nTries, timeout);
 
         if (-1 == llopen(params)) {
             printf("ERROR: Couldn't open connection.\n");
@@ -128,7 +128,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
         file = fopen(readFilename, "w");
         if (NULL == file) {
             printf("ERROR: Couldn't open %s.\n", readFilename);
-            if (-1 == llclose(params)) {
+            if (-1 == llclose()) {
                 printf("ERROR: Couldn't close connection.\n");
             }
             return;
@@ -142,7 +142,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
             }
 
             size_t written = fwrite(packet, sizeof(unsigned char), read, file);
-            if (written < read) {
+            if (written < (size_t)read) {
                 printf("ERROR: Error in %s.\n", filename);
                 goto cleanup;
             }
@@ -150,7 +150,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
     }
 
 cleanup:
-    if (-1 == llclose(params)) {
+    if (-1 == llclose()) {
         printf("ERROR: Couldn't close connection.\n");
     }
     if (0 != fclose(file)) {
