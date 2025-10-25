@@ -16,8 +16,8 @@
 #define C_RR(n) (0xAA + (n))
 #define C_REJ(n) (0x54 + (n))
 #define C_DISC 0x0B
-#define VALID_C_CONTROL(byte) (C_SET == (byte) ||  \
-                               C_UA == (byte) ||   \
+#define VALID_C_CONTROL(byte) (C_SET == (byte) ||    \
+                               C_UA == (byte) ||     \
                                C_RR(0) == (byte) ||  \
                                C_RR(1) == (byte) ||  \
                                C_REJ(0) == (byte) || \

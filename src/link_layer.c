@@ -11,52 +11,54 @@
 #define _POSIX_SOURCE 1 // POSIX compliant source
 
 LinkLayer parameters;
+int frame_number = 0;
 // Information frame has the same fields as control frame with 2 more, the payload and respective bcc that can be byte stuffed
 unsigned char frame[CONTROL_FRAME_SIZE + 2 * (MAX_PAYLOAD_SIZE + 1)];
-int frame_number = 0;
 
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
 int llopen(LinkLayer connectionParameters) {
     parameters = connectionParameters;
+
     if (-1 == openSerialPort(parameters.serialPort, parameters.baudRate)) {
+        printf("ERROR: openSerialPort failed.\n");
         return -1;
     }
 
     if (LlTx == parameters.role) {
         // Send SET frame
         if (-1 == sendControlFrame(frame, A_SEND_TRANSMITTER, C_SET)) {
+            printf("ERROR: sendControlFrame failed.\n");
             return -1;
         }
 
-        // Receive UA frame
+        // Receive UA frame, if any other discard it
         ControlState state = CONTROL_START;
-        int received;
         do {
-            received = receiveControlFrame(frame, &state);
-            if (-1 == received) {
+            if (-1 == receiveControlFrame(frame, &state)) {
+                printf("ERROR: receiveControlFrame failed.\n");
                 return -1;
             }
-        } while (!frameIsType(frame, C_UA));
+        } while (TRUE != frameIsType(frame, C_UA));
+
     } else {
-        // Receive SET frame
+        // Receive SET frame, if any other discard it
         ControlState state = CONTROL_START;
-        int received;
         do {
-            received = receiveControlFrame(frame, &state);
-            if (-1 == received) {
+            if (-1 == receiveControlFrame(frame, &state)) {
+                printf("ERROR: receiveControlFrame failed.\n");
                 return -1;
             }
-        } while (!frameIsType(frame, C_SET));
+        } while (TRUE != frameIsType(frame, C_SET));
 
         // Send UA frame
         if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_UA)) {
+            printf("ERROR: sendControlFrame failed.\n");
             return -1;
         }
     }
 
-    memset(frame, 0, sizeof(frame));
     return 0;
 }
 
@@ -66,33 +68,36 @@ int llopen(LinkLayer connectionParameters) {
 int llwrite(const unsigned char *buf, int bufSize) {
     int frame_size = buildInformationFrame(frame, A_SEND_TRANSMITTER, C_FRAME(frame_number), buf, bufSize);
     if (-1 == frame_size) {
+        printf("ERROR: buildInformationFrame failed.\n");
         return -1;
     }
 
     int new_frame_size = byteStuff(frame, frame_size);
     if (-1 == new_frame_size) {
+        printf("ERROR: byteStuff failed.\n");
         return -1;
     }
 
     do {
         if (-1 == writeBytesSerialPort(frame, new_frame_size)) {
+            printf("ERROR: writeBytesSerialPort failed.\n");
             return -1;
         }
 
         // Receive Rej or RR(other frame_number) frame
         ControlState state = CONTROL_START;
-        int received;
         do {
-            received = receiveControlFrame(frame, &state);
-            if (-1 == received) {
+            if (-1 == receiveControlFrame(frame, &state)) {
+                printf("ERROR: receiveControlFrame failed.\n");
                 return -1;
             }
-        } while (!(frameIsType(frame, C_REJ(frame_number)) ||
-                   frameIsType(frame, C_RR(!frame_number))));
+        } while (TRUE != (frameIsType(frame, C_REJ(frame_number)) ||
+                          frameIsType(frame, C_RR(!frame_number))));
+
     } while (frameIsType(frame, C_REJ(frame_number)));
 
     frame_number = !frame_number;
-    memset(frame, 0, sizeof(frame));
+
     return 0;
 }
 
@@ -102,38 +107,42 @@ int llwrite(const unsigned char *buf, int bufSize) {
 int llread(unsigned char *packet) {
     // Receive I frame
     InformationState state = CONTROL_START;
-    int frame_size;
+    int frame_size = receiveInformationFrame(frame, &state);
 
-    do {
-        frame_size = receiveInformationFrame(frame, &state);
-    } while (-1 == frame_size);
-
-    frame_size = byteDeStuff(frame, frame_size);
     if (-1 == frame_size) {
+        printf("ERROR: receiveInformationFrame failed.\n");
         return -1;
     }
 
-    int data_start = 4;
+    frame_size = byteDeStuff(frame, frame_size);
+    if (-1 == frame_size) {
+        printf("ERROR: byteDeStuff failed.\n");
+        return -1;
+    }
+
+    int data_begin = 4;
     int data_end = frame_size - 2;
-    unsigned char received_bcc2 = frame[data_end]; // BCC2 is the byte received before the flag
-    unsigned char checked_bcc2 = frame[data_start];
-    for (size_t i = 5; i < data_end; i++) {
+    unsigned char received_bcc2 = frame[data_end];
+    unsigned char checked_bcc2 = frame[data_begin];
+    for (size_t i = data_begin + 1; i < data_end; i++) { // Start the loop in the second data byte
         checked_bcc2 ^= frame[i];
     }
 
     if (frameIsType(frame, C_FRAME(frame_number))) {
         if (checked_bcc2 == received_bcc2) {
-            int data_size = data_end - data_start;
-            memcpy(packet, &frame[data_start], data_size);
+            int data_size = data_end - data_begin;
+            memcpy(packet, &frame[data_begin], data_size);
 
             frame_number = !frame_number;
             // Send RR frame
             if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_RR(frame_number))) {
+                printf("ERROR: sendControlFrame failed.\n");
                 return -1;
             }
         } else {
             // Send Rej frame
             if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_REJ(frame_number))) {
+                printf("ERROR: sendControlFrame failed.\n");
                 return -1;
             }
         }
@@ -141,6 +150,7 @@ int llread(unsigned char *packet) {
     } else {
         // Send RR frame
         if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_RR(frame_number))) {
+            printf("ERROR: sendControlFrame failed.\n");
             return -1;
         }
     }
@@ -155,45 +165,46 @@ int llclose() {
     if (LlTx == parameters.role) {
         // Send DISC frame
         if (-1 == sendControlFrame(frame, A_SEND_TRANSMITTER, C_DISC)) {
+            printf("ERROR: sendControlFrame failed.\n");
             return -1;
         }
 
         // Receive DISC frame
         ControlState state = CONTROL_START;
-        int received;
         do {
-            received = receiveControlFrame(frame, &state);
-            if (-1 == received) {
+            if (-1 == receiveControlFrame(frame, &state)) {
+                printf("ERROR: receiveControlFrame failed.\n");
                 return -1;
             }
         } while (!frameIsType(frame, C_DISC));
 
         // Send UA frame
         if (-1 == sendControlFrame(frame, A_REPLY_TRANSMITTER, C_UA)) {
+            printf("ERROR: sendControlFrame failed.\n");
             return -1;
         }
 
     } else {
         // Receive DISC frame
         ControlState state = CONTROL_START;
-        int received;
         do {
-            received = receiveControlFrame(frame, &state);
-            if (-1 == received) {
+            if (-1 == receiveControlFrame(frame, &state)) {
+                printf("ERROR: receiveControlFrame failed.\n");
                 return -1;
             }
         } while (!frameIsType(frame, C_DISC));
 
         // Send DISC frame
         if (-1 == sendControlFrame(frame, A_SEND_RECEIVER, C_DISC)) {
+            printf("ERROR: sendControlFrame failed.\n");
             return -1;
         }
 
         // Receive UA frame
         state = CONTROL_START;
         do {
-            received = receiveControlFrame(frame, &state);
-            if (-1 == received) {
+            if (-1 == receiveControlFrame(frame, &state)) {
+                printf("ERROR: receiveControlFrame failed.\n");
                 return -1;
             }
         } while (!frameIsType(frame, C_UA));
