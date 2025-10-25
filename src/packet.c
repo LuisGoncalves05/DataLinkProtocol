@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Sets the fields of the data packet.
-// Return size of packet on success or -1 on error.
 int buildDataPacket(unsigned char *packet, unsigned char *data, size_t size) {
     if (NULL == packet || NULL == data) {
         printf("ERROR: NULL parameter packet: %p data: %p.\n", packet, data);
@@ -44,8 +42,6 @@ int readDataPacket(unsigned char *packet, unsigned char *data, size_t *size) {
     return 0;
 }
 
-// Sets the fields of the control packet.
-// Return size of packet on success or -1 on error.
 int buildControlPacket(unsigned char *packet, PacketControlField control, size_t size, const char *filename) {
     if (NULL == packet || NULL == filename) {
         printf("ERROR: NULL parameter packet=%p filename=%p.\n", packet, filename);
@@ -95,8 +91,7 @@ int buildControlPacket(unsigned char *packet, PacketControlField control, size_t
 
 int readControlPacket(unsigned char *packet, PacketControlField *control, size_t *size, char *filename) {
     if (NULL == packet || NULL == control || NULL == size || NULL == filename) {
-        printf("ERROR: NULL parameter packet:%p control:%p size:%p filename:%p.\n",
-               packet, control, size, filename);
+        printf("ERROR: NULL parameter packet:%p control:%p size:%p filename:%p.\n", packet, control, size, filename);
         return -1;
     }
 

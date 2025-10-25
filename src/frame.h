@@ -26,7 +26,8 @@ int buildInformationFrame(unsigned char *frame, int addressField, int controlFie
 // Return 0 on success or -1 on error.
 int sendControlFrame(unsigned char *frame, int addressField, int controlField);
 
-// Return if frame is of the type controlField or -1 on error.
+// Checks if frame is of type controlField.
+// Return -1 on error or TRUE if frame is of the type controlField, else FALSE.
 int frameIsType(unsigned char *frame, int controlField);
 
 // Receives a control frame.

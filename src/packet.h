@@ -4,7 +4,7 @@
 #include "link_layer.h"
 #include <stddef.h>
 
-// Payload has a limited number of bytes, and each data packet needs C, L2 and L1 bytes and Data therefore lowering that size by 3
+// Payload has a limited number of bytes, and each data packet needs C, L2 and L1 bytes and Data therefore lowering that size by 3.
 #define MAX_DATA_FIELD_SIZE (MAX_PAYLOAD_SIZE - 3)
 #define MAX_FILENAME_SIZE 64
 
@@ -37,12 +37,12 @@ int buildControlPacket(unsigned char *packet, PacketControlField control, size_t
 // Return size of packet on success or -1 on error.
 int readControlPacket(unsigned char *packet, PacketControlField *control, size_t *size, char *filename);
 
-// Check if it is an START packet.
-// Return -1 if NULL, TRUE if is START packet, else FALSE
+// Check if packet is a START packet.
+// Return -1 if NULL, TRUE if is START packet, else FALSE.
 int isStartPacket(unsigned char *packet);
 
-// Check if it is an END packet.
-// Return -1 if NULL, TRUE if is END packet, else FALSE
+// Check if packet is an END packet.
+// Return -1 if NULL, TRUE if is END packet, else FALSE.
 int isEndPacket(unsigned char *packet);
 
 #endif

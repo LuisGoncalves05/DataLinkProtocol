@@ -3,6 +3,7 @@
 
 int nextStateControl(ControlState *state, unsigned char *byte, unsigned char *frame, unsigned int *idx) {
     if (NULL == state || NULL == byte || NULL == frame || NULL == idx) {
+        printf("ERROR: NULL parameter state: %p byte: %p frame: %p idx: %p.\n", state, byte, frame, idx);
         return -1;
     }
 
@@ -61,6 +62,7 @@ int nextStateControl(ControlState *state, unsigned char *byte, unsigned char *fr
             }
             break;
         default:
+            printf("ERROR: Invalid ControlState.\n");
             return -1;
     }
 
@@ -69,6 +71,7 @@ int nextStateControl(ControlState *state, unsigned char *byte, unsigned char *fr
 
 int nextStateInformation(InformationState *state, unsigned char *byte, unsigned char *frame, unsigned int *idx) {
     if (NULL == state || NULL == byte || NULL == frame || NULL == idx) {
+        printf("ERROR: NULL parameter state: %p byte: %p frame: %p idx: %p.\n", state, byte, frame, idx);
         return -1;
     }
 
@@ -124,6 +127,7 @@ int nextStateInformation(InformationState *state, unsigned char *byte, unsigned 
             }
             break;
         default:
+            printf("ERROR: Invalid InformationState.\n");
             return -1;
     }
 
