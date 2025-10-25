@@ -34,11 +34,10 @@ static LinkLayer createLinkLayer(const char *serialPort, LinkLayerRole role, int
 
 void applicationLayer(const char *serialPort, const char *role, int baudRate, int nTries, int timeout, const char *filename) {
     FILE *file;
-    LinkLayer params;
     unsigned char packet[MAX_PAYLOAD_SIZE];
 
     if (0 == strcmp(role, "tx")) {
-        params = createLinkLayer(serialPort, LlTx, baudRate, nTries, timeout);
+        LinkLayer params = createLinkLayer(serialPort, LlTx, baudRate, nTries, timeout);
 
         FILE *file = fopen(filename, "rb");
         if (NULL == file) {
@@ -65,17 +64,21 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
 
         // Send start packet
         int packetSize = buildControlPacket(packet, PCF_START, fileSize, filename);
+        if (-1 == packetSize) {
+            printf("ERROR: buildControlPacket failed.\n");
+            goto cleanup;
+        }
 
         if (-1 == llwrite(packet, packetSize)) {
             printf("ERROR: llwrite failed.\n");
             goto cleanup;
         }
 
-        size_t read;
+        // Send file information packets
         while (TRUE) {
             unsigned char data[MAX_DATA_FIELD_SIZE];
 
-            read = fread(data, sizeof(unsigned char), MAX_DATA_FIELD_SIZE, file);
+            size_t read = fread(data, sizeof(unsigned char), MAX_DATA_FIELD_SIZE, file);
             if (0 != ferror(file)) {
                 printf("ERROR: Error in %s.\n", filename);
                 goto cleanup;
@@ -98,19 +101,25 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
 
         // Send end packet
         packetSize = buildControlPacket(packet, PCF_END, fileSize, filename);
+        if (-1 == packetSize) {
+            printf("ERROR: buildControlPacket failed.\n");
+            goto cleanup;
+        }
+
         if (-1 == llwrite(packet, packetSize)) {
             printf("ERROR: llwrite failed.\n");
             goto cleanup;
         }
 
     } else {
-        params = createLinkLayer(serialPort, LlRx, baudRate, nTries, timeout);
+        LinkLayer params = createLinkLayer(serialPort, LlRx, baudRate, nTries, timeout);
 
         if (-1 == llopen(params)) {
             printf("ERROR: Couldn't open connection.\n");
             return;
         }
 
+        // Receive start packet
         while (!isStartPacket(packet)) {
             int read = llread(packet);
             if (-1 == read) {
@@ -121,13 +130,12 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
 
         PacketControlField control;
         size_t size;
-        char readFilename[MAX_FILENAME_SIZE];
+        char readFilename[MAX_FILENAME_SIZE]; // Never used, but sent and received anyways
         if (-1 == readControlPacket(packet, &control, &size, readFilename)) {
             printf("ERROR: Reading control packet failed.\n");
             goto cleanup;
         }
 
-        printf("%s\n", readFilename);
         file = fopen(filename, "wb");
         if (NULL == file) {
             printf("ERROR: Couldn't open %s.\n", filename);
@@ -142,6 +150,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
             goto cleanup;
         }
 
+        // Receive all other packets
         while (!isEndPacket(packet)) {
             size_t read;
             unsigned char data[MAX_DATA_FIELD_SIZE];
