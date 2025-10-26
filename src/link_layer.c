@@ -176,6 +176,7 @@ int llclose() {
                 printf("ERROR: receiveControlFrame failed.\n");
                 return -1;
             }
+            printf("I be not receiving a disc\n");
         } while (!frameIsType(frame, C_DISC));
 
         // Send UA frame

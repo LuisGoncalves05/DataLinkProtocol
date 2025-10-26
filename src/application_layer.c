@@ -88,12 +88,13 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
                 break;
             }
 
-            if (-1 == buildDataPacket(packet, data, read)) {
+            int size = buildDataPacket(packet, data, read);
+            if (-1 == size) {
                 printf("ERROR: Building data packet failed.\n");
                 goto cleanup;
             }
 
-            if (-1 == llwrite(packet, read)) {
+            if (-1 == llwrite(packet, size)) {
                 printf("ERROR: llwrite failed.\n");
                 goto cleanup;
             }

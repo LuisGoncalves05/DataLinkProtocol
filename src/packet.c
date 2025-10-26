@@ -79,14 +79,9 @@ int buildControlPacket(unsigned char *packet, PacketControlField control, size_t
 
     packet += 2 + packet[1];
 
-    int packet_size = packet - initialPacket;
-    printf("Packet (%d bytes): ", packet_size);
-    for (int i = 0; i < packet_size; i++) {
-        printf("%02X ", (unsigned char) initialPacket[i]);
-    }
-    printf("\n");
+    int packetSize = packet - initialPacket;
 
-    return packet_size;
+    return packetSize;
 }
 
 int readControlPacket(unsigned char *packet, PacketControlField *control, size_t *size, char *filename) {

@@ -1,5 +1,6 @@
 #include "state_machines.h"
 #include <stddef.h>
+#include <stdio.h>
 
 int nextStateControl(ControlState *state, unsigned char *byte, unsigned char *frame, unsigned int *idx) {
     if (NULL == state || NULL == byte || NULL == frame || NULL == idx) {
