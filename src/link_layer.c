@@ -105,57 +105,69 @@ int llwrite(const unsigned char *buf, int bufSize) {
 // LLREAD
 ////////////////////////////////////////////////
 int llread(unsigned char *packet) {
-    // Receive I frame
-    InformationState state = CONTROL_START;
-    int frame_size = receiveInformationFrame(frame, &state);
+    int retriesLeft = parameters.nRetransmissions;
 
-    if (-1 == frame_size) {
-        printf("ERROR: receiveInformationFrame failed.\n");
-        return -1;
-    }
+    while (retriesLeft > 0) {
+        // Receive I frame
+        InformationState state = CONTROL_START;
+        int frame_size = receiveInformationFrame(frame, &state);
+        if (-1 == frame_size) {
+            printf("ERROR: receiveInformationFrame failed.\n");
+            return -1;
+        }
 
-    frame_size = byteDeStuff(frame, frame_size);
-    if (-1 == frame_size) {
-        printf("ERROR: byteDeStuff failed.\n");
-        return -1;
-    }
+        // Destuff I frame
+        frame_size = byteDeStuff(frame, frame_size);
+        if (-1 == frame_size) {
+            printf("ERROR: byteDeStuff failed.\n");
+            return -1;
+        }
 
-    int data_begin = 4;
-    int data_end = frame_size - 2;
-    unsigned char received_bcc2 = frame[data_end];
-    unsigned char checked_bcc2 = frame[data_begin];
-    for (size_t i = data_begin + 1; i < data_end; i++) { // Start the loop in the second data byte
-        checked_bcc2 ^= frame[i];
-    }
+        int data_begin = 4;
+        int data_end = frame_size - 2;
+        unsigned char received_bcc2 = frame[data_end];
+        unsigned char checked_bcc2 = frame[data_begin];
 
-    if (frameIsType(frame, C_FRAME(frame_number))) {
-        if (checked_bcc2 == received_bcc2) {
-            int data_size = data_end - data_begin;
-            memcpy(packet, &frame[data_begin], data_size);
+        for (size_t i = data_begin + 1; i < data_end; i++) {
+            checked_bcc2 ^= frame[i];
+        }
 
-            frame_number = !frame_number;
-            // Send RR frame
+        if (frameIsType(frame, C_FRAME(frame_number))) {
+            if (checked_bcc2 == received_bcc2) {
+                // Success
+                // Correct bcc2 and frame_number
+                int data_size = data_end - data_begin;
+                memcpy(packet, &frame[data_begin], data_size);
+                frame_number = !frame_number;
+
+                if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_RR(frame_number))) {
+                    printf("ERROR: sendControlFrame failed.\n");
+                    return -1;
+                }
+
+                return data_size;
+            } else {
+                // BCC2 failed
+                // Send REJ frame and retry
+                if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_REJ(frame_number))) {
+                    printf("ERROR: sendControlFrame failed.\n");
+                    return -1;
+                }
+            }
+        } else {
+            // Wrong frame number
+            // Send RR(frame_number) and retry
             if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_RR(frame_number))) {
                 printf("ERROR: sendControlFrame failed.\n");
                 return -1;
             }
-        } else {
-            // Send Rej frame
-            if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_REJ(frame_number))) {
-                printf("ERROR: sendControlFrame failed.\n");
-                return -1;
-            }
         }
 
-    } else {
-        // Send RR frame
-        if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_RR(frame_number))) {
-            printf("ERROR: sendControlFrame failed.\n");
-            return -1;
-        }
+        retriesLeft--;
     }
 
-    return 0;
+    printf("ERROR: Max retries exceeded.\n");
+    return -1;
 }
 
 ////////////////////////////////////////////////
@@ -176,7 +188,6 @@ int llclose() {
                 printf("ERROR: receiveControlFrame failed.\n");
                 return -1;
             }
-            printf("I be not receiving a disc\n");
         } while (!frameIsType(frame, C_DISC));
 
         // Send UA frame

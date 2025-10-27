@@ -39,7 +39,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
     if (0 == strcmp(role, "tx")) {
         LinkLayer params = createLinkLayer(serialPort, LlTx, baudRate, nTries, timeout);
 
-        FILE *file = fopen(filename, "rb");
+        file = fopen(filename, "rb");
         if (NULL == file) {
             printf("ERROR: Couldn't open %s.\n", filename);
             return;
@@ -62,6 +62,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
             return;
         }
 
+        /*debug*/ printf("LinkLayer opened successfully.\n");
+
         // Send start packet
         int packetSize = buildControlPacket(packet, PCF_START, fileSize, filename);
         if (-1 == packetSize) {
@@ -73,6 +75,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
             printf("ERROR: llwrite failed.\n");
             goto cleanup;
         }
+
+        /*debug*/ printf("Sent a start packet.\n");
 
         // Send file information packets
         while (TRUE) {
@@ -98,6 +102,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
                 printf("ERROR: llwrite failed.\n");
                 goto cleanup;
             }
+            /*debug*/ printf("Sent an information packet.\n");
         }
 
         // Send end packet
@@ -112,6 +117,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
             goto cleanup;
         }
 
+        /*debug*/ printf("Sent an end packet.\n");
+
     } else {
         LinkLayer params = createLinkLayer(serialPort, LlRx, baudRate, nTries, timeout);
 
@@ -119,6 +126,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
             printf("ERROR: Couldn't open connection.\n");
             return;
         }
+
+        /*debug*/ printf("LinkLayer opened successfully.\n");
 
         // Receive start packet
         while (!isStartPacket(packet)) {
@@ -137,6 +146,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
             goto cleanup;
         }
 
+        /*debug*/ printf("Received a start packet.\n");
+
         file = fopen(filename, "wb");
         if (NULL == file) {
             printf("ERROR: Couldn't open %s.\n", filename);
@@ -153,19 +164,21 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
 
         // Receive all other packets
         while (!isEndPacket(packet)) {
-            size_t read;
-            unsigned char data[MAX_DATA_FIELD_SIZE];
-            if (-1 == readDataPacket(packet, data, &read)) {
-                printf("ERROR: Couldn't read data packet\n");
-                goto cleanup;
-            }
+            if (!isStartPacket(packet)) {
+                size_t read;
+                unsigned char data[MAX_DATA_FIELD_SIZE];
+                if (-1 == readDataPacket(packet, data, &read)) {
+                    printf("ERROR: Couldn't read data packet\n");
+                    goto cleanup;
+                }
+                /*debug*/ printf("Received an information packet.\n");
 
-            size_t written = fwrite(data, sizeof(unsigned char), read, file);
-            if (written < read) {
-                printf("ERROR: Error in %s.\n", filename);
-                goto cleanup;
+                size_t written = fwrite(data, sizeof(unsigned char), read, file);
+                if (written < read) {
+                    printf("ERROR: Error in %s.\n", filename);
+                    goto cleanup;
+                }
             }
-
             if (-1 == llread(packet)) {
                 printf("ERROR: Couldn't read file.\n");
                 goto cleanup;
@@ -177,6 +190,8 @@ cleanup:
     if (-1 == llclose()) {
         printf("ERROR: Couldn't close connection.\n");
     }
+    /*debug*/ printf("LinkLayer closed successfully.\n");
+
     if (0 != fclose(file)) {
         printf("ERROR: Couldn't close %s.\n", filename);
     }
