@@ -7,8 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 
-static long get_file_size(FILE *file) {
-    if (fseek(file, 0L, SEEK_END) == -1) {
+static long getFileSize(FILE *file) {
+    if (-1 == fseek(file, 0L, SEEK_END)) {
         printf("ERROR: fseek failed.\n");
         return -1;
     }
@@ -19,7 +19,7 @@ static long get_file_size(FILE *file) {
     return fileSize;
 }
 
-static LinkLayer createLinkLayer(const char *serialPort, LinkLayerRole role, int baudRate, int nTries, int timeout) {
+static LinkLayer buildLinkLayer(const char *serialPort, LinkLayerRole role, int baudRate, int nTries, int timeout) {
     LinkLayer params = {
         .role = role,
         .baudRate = baudRate,
@@ -37,14 +37,16 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
     unsigned char packet[MAX_PAYLOAD_SIZE];
 
     if (0 == strcmp(role, "tx")) {
-        LinkLayer params = createLinkLayer(serialPort, LlTx, baudRate, nTries, timeout);
+        LinkLayer params = buildLinkLayer(serialPort, LlTx, baudRate, nTries, timeout);
 
         file = fopen(filename, "rb");
         if (NULL == file) {
             printf("ERROR: Couldn't open %s.\n", filename);
             return;
         }
-        long fileSize = get_file_size(file);
+        /*debug*/ printf("File opened successfully.\n");
+
+        long fileSize = getFileSize(file);
 
         if (-1 == fileSize) {
             printf("ERROR: Couldn't get file size.\n");
@@ -120,7 +122,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
         /*debug*/ printf("Sent an end packet.\n");
 
     } else {
-        LinkLayer params = createLinkLayer(serialPort, LlRx, baudRate, nTries, timeout);
+        LinkLayer params = buildLinkLayer(serialPort, LlRx, baudRate, nTries, timeout);
 
         if (-1 == llopen(params)) {
             printf("ERROR: Couldn't open connection.\n");
@@ -130,12 +132,14 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
         /*debug*/ printf("LinkLayer opened successfully.\n");
 
         // Receive start packet
-        while (!isStartPacket(packet)) {
-            int read = llread(packet);
-            if (-1 == read) {
-                printf("ERROR: Couldn't read file.\n");
-                return;
-            }
+        int read = llread(packet);
+        if (-1 == read) {
+            printf("ERROR: Couldn't read file.\n");
+            return;
+        }
+        if (!isStartPacket(packet)) {
+            printf("ERROR: Couldn't read start packet.\n");
+            return;
         }
 
         PacketControlField control;
@@ -156,6 +160,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
             }
             return;
         }
+        /*debug*/ printf("File opened successfully.\n");
 
         if (-1 == llread(packet)) {
             printf("ERROR: Couldn't read file.\n");
@@ -164,26 +169,26 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
 
         // Receive all other packets
         while (!isEndPacket(packet)) {
-            if (!isStartPacket(packet)) {
-                size_t read;
-                unsigned char data[MAX_DATA_FIELD_SIZE];
-                if (-1 == readDataPacket(packet, data, &read)) {
-                    printf("ERROR: Couldn't read data packet\n");
-                    goto cleanup;
-                }
-                /*debug*/ printf("Received an information packet.\n");
+            size_t read;
+            unsigned char data[MAX_DATA_FIELD_SIZE];
+            if (-1 == readDataPacket(packet, data, &read)) {
+                printf("ERROR: Couldn't read data packet\n");
+                goto cleanup;
+            }
+            /*debug*/ printf("Received an information packet.\n");
 
-                size_t written = fwrite(data, sizeof(unsigned char), read, file);
-                if (written < read) {
-                    printf("ERROR: Error in %s.\n", filename);
-                    goto cleanup;
-                }
+            size_t written = fwrite(data, sizeof(unsigned char), read, file);
+            if (written < read) {
+                printf("ERROR: Error in %s.\n", filename);
+                goto cleanup;
             }
             if (-1 == llread(packet)) {
                 printf("ERROR: Couldn't read file.\n");
                 goto cleanup;
             }
         }
+
+        /*debug*/ printf("Received an end packet.\n");
     }
 
 cleanup:
@@ -195,4 +200,5 @@ cleanup:
     if (0 != fclose(file)) {
         printf("ERROR: Couldn't close %s.\n", filename);
     }
+    /*debug*/ printf("File closed successfully.\n");
 }
