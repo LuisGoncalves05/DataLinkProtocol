@@ -35,7 +35,7 @@ int frameIsType(unsigned char *frame, int controlField);
 int receiveControlFrame(unsigned char *frame, ControlState *state, int timeout);
 
 // Receives an information frame.
-// Return 0 if frame is received correctly, -1 on error and -2 if a timeout occured.
+// Return 0 if frame is received correctly, -1 on error.
 int receiveInformationFrame(unsigned char *frame, InformationState *state);
 
 #endif
