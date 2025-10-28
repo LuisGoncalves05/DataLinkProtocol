@@ -1,6 +1,6 @@
 #include "frame.h"
 #include "link_layer_utils.h"
-
+#include "alarm.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -138,7 +138,7 @@ int frameIsType(unsigned char *frame, int controlField) {
     return frame[2] == controlField;
 }
 
-int receiveControlFrame(unsigned char *frame, ControlState *state) {
+int receiveControlFrame(unsigned char *frame, ControlState *state, int timeout) {
     if (NULL == frame || NULL == state) {
         printf("ERROR: NULL parameter frame.\n");
         return -1;
@@ -147,21 +147,24 @@ int receiveControlFrame(unsigned char *frame, ControlState *state) {
     *state = CONTROL_START;
     unsigned char byte;
     unsigned int idx = 0;
-    while (CONTROL_STOP != *state) {
-        if (-1 == readByteSerialPort(&byte)) {
+
+    // Stops when state is final or when alarm is set off
+    while ((!timeout || alarmState.alarmOn) && CONTROL_STOP != *state) {
+        int read = readByteSerialPort(&byte);
+        if (-1 == read) {
             printf("ERROR: readByteSerialPort failed.\n");
             return -1;
         }
-        // printf("Control state before: %d\n", *state);
-        // printf("Byte is read: %02X\n", byte);
-        if (-1 == nextStateControl(state, &byte, frame, &idx)) {
+        if (1 == read && -1 == nextStateControl(state, &byte, frame, &idx)) {
             printf("ERROR: nextStateControl failed.\n");
             return -1;
         }
-        // printf("Control state after: %d\n", *state);
     }
 
-    // printf("Received a control frame\n");
+    if (CONTROL_STOP != *state) {
+        printf("ERROR: receiveControlFrame timed out.\n");
+        return -2;
+    }
 
     return 0;
 }
@@ -170,21 +173,19 @@ int receiveInformationFrame(unsigned char *frame, InformationState *state) {
     *state = INFORMATION_START;
     unsigned char byte;
     unsigned int idx = 0;
+
     while (INFORMATION_STOP != *state) {
-        if (-1 == readByteSerialPort(&byte)) {
+        //printf("trying to receive information frame.\n");
+        int read = readByteSerialPort(&byte);
+        if (-1 == read) {
             printf("ERROR: readByteSerialPort failed.\n");
             return -1;
         }
-        // printf("Information state before: %d\n", *state);
-        // printf("Byte is read: %02X\n", byte);
-        if (-1 == nextStateInformation(state, &byte, frame, &idx)) {
+        if (1 == read && -1 == nextStateInformation(state, &byte, frame, &idx)) {
             printf("ERROR: nextStateInformation failed.\n");
             return -1;
         }
-        // printf("Information state after: %d\n", *state);
     }
-
-    // printf("Received an information frame\n");
 
     return idx;
 }

@@ -1,11 +1,12 @@
 // Link layer protocol implementation
 
 #include "link_layer.h"
+#include "alarm.h"
 #include "frame.h"
 #include "link_layer_utils.h"
 #include "serial_port.h"
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 
 // MISC
 #define _POSIX_SOURCE 1 // POSIX compliant source
@@ -27,40 +28,80 @@ int llopen(LinkLayer connectionParameters) {
         return -1;
     }
 
+    if (-1 == setupAlarm()) {
+        printf("ERROR: setupAlarm failed.\n");
+        return -1;
+    }
+
+    resetAlarm();
     if (LlTx == parameters.role) {
-        // Send SET frame
-        if (-1 == sendControlFrame(sentFrame, A_SEND_TRANSMITTER, C_SET)) {
-            printf("ERROR: sendControlFrame failed.\n");
+        // Send SET frame (with timeout)
+        while (alarmState.alarmCount < parameters.nRetransmissions) {
+            printf("Sending SET frame\n");
+            if (-1 == sendControlFrame(sentFrame, A_SEND_TRANSMITTER, C_SET)) {
+                printf("ERROR: sendControlFrame failed.\n");
+                removeAlarm();
+                return -1;
+            }
+            printf("Sent SET frame\n");
+
+            setAlarm(parameters.timeout);
+            // Receive UA frame, if any other discard it
+            ControlState state = CONTROL_START;
+            do {
+                printf("receiving UA frame\n");
+                int retv = receiveControlFrame(receivedFrame, &state, TRUE);
+                printf("received UA frame\n");
+                if (-1 == retv) {
+                    printf("ERROR: receiveControlFrame failed.\n");
+                    removeAlarm();
+                    return -1;
+                }
+                if (-2 == retv) {
+                    break;
+                }
+            } while (TRUE != frameIsType(receivedFrame, C_UA));
+
+            // Received the correct type of control frame
+            if (TRUE == frameIsType(receivedFrame, C_UA)) {
+                removeAlarm();
+                return 0;
+            }
+
+            // If it did not receive the correct frame type then it must have timed out
+        }
+
+        removeAlarm();
+        printf("ERROR: Timed out while trying to establish connection.\n");
+        return -1;
+
+    } else {
+        // Receive SET frame
+        ControlState state = CONTROL_START;
+        int retv = receiveControlFrame(receivedFrame, &state, FALSE);
+
+        if (-1 == retv) {
+            printf("ERROR: receiveControlFrame failed.\n");
+            return -1;
+        }
+        if (-2 == retv) {
+            printf("ERROR: receiveControlFrame timed out.\n");
             return -1;
         }
 
-        // Receive UA frame, if any other discard it
-        ControlState state = CONTROL_START;
-        do {
-            if (-1 == receiveControlFrame(receivedFrame, &state)) {
-                printf("ERROR: receiveControlFrame failed.\n");
-                return -1;
-            }
-        } while (TRUE != frameIsType(receivedFrame, C_UA));
-
-    } else {
-        // Receive SET frame, if any other discard it
-        ControlState state = CONTROL_START;
-        do {
-            if (-1 == receiveControlFrame(receivedFrame, &state)) {
-                printf("ERROR: receiveControlFrame failed.\n");
-                return -1;
-            }
-        } while (TRUE != frameIsType(receivedFrame, C_SET));
+        if (TRUE != frameIsType(receivedFrame, C_SET)) {
+            printf("ERROR: received a non SET frame.\n");
+            return -1;
+        }
 
         // Send UA frame
         if (-1 == sendControlFrame(sentFrame, A_REPLY_RECEIVER, C_UA)) {
             printf("ERROR: sendControlFrame failed.\n");
             return -1;
         }
-    }
 
-    return 0;
+        return 0;
+    }
 }
 
 ////////////////////////////////////////////////
@@ -82,7 +123,12 @@ int llwrite(const unsigned char *buf, int bufSize) {
         return -1;
     }
 
-    do {
+    resetAlarm();
+    while (alarmState.alarmCount < parameters.nRetransmissions) {
+        setAlarm(parameters.timeout);
+
+        printf("[llwrite] Attempt #%d - sending frame with number %d\n", alarmState.alarmCount, frame_number);
+
         if (-1 == writeBytesSerialPort(sentFrame, new_frame_size)) {
             printf("ERROR: writeBytesSerialPort failed.\n");
             return -1;
@@ -91,34 +137,57 @@ int llwrite(const unsigned char *buf, int bufSize) {
         // Receive Rej or RR(other frame_number) frame
         ControlState state = CONTROL_START;
         do {
-            if (-1 == receiveControlFrame(receivedFrame, &state)) {
+            int retv = receiveControlFrame(receivedFrame, &state, TRUE);
+            if (-1 == retv) {
                 printf("ERROR: receiveControlFrame failed.\n");
+                removeAlarm();
                 return -1;
             }
-        } while (TRUE != (frameIsType(receivedFrame, C_REJ(frame_number)) ||
-                          frameIsType(receivedFrame, C_RR(!frame_number))));
+            if (-2 == retv) {
+                break;
+            }
+        } while (!frameIsType(receivedFrame, C_REJ(frame_number)) &&
+                 !frameIsType(receivedFrame, C_RR(0)) &&
+                 !frameIsType(receivedFrame, C_RR(1)));
 
-    } while (frameIsType(receivedFrame, C_REJ(frame_number)));
+        if (frameIsType(receivedFrame, C_RR(!frame_number))) {
+            frame_number = !frame_number;
+            printf("[llwrite] SUCCESS - frame sent successfully\n");
+            removeAlarm();
+            return 0;
+        }
 
-    frame_number = !frame_number;
+        // Rej frame_number and RR frame_number have the same behaviour, we need to resend the same frame
+    }
 
-    return 0;
+    removeAlarm();
+    printf("ERROR: Timed out while trying to send frame.\n");
+    return -1;
 }
+
 
 ////////////////////////////////////////////////
 // LLREAD
 ////////////////////////////////////////////////
-int llread(unsigned char *packet) {
-    int retriesLeft = parameters.nRetransmissions;
 
+int llread(unsigned char *packet) {
     unsigned char frame[CONTROL_FRAME_SIZE + 2 * (MAX_PAYLOAD_SIZE + 1)];
 
-    while (retriesLeft > 0) {
+    int attempt = 0;
+    while (TRUE) {
+        attempt++;
+        printf("[llread] Attempt #%d - waiting for frame with number %d\n", attempt, frame_number);
+
         // Receive I frame
         InformationState state = INFORMATION_START;
         int frame_size = receiveInformationFrame(frame, &state);
+
         if (-1 == frame_size) {
             printf("ERROR: receiveInformationFrame failed.\n");
+            return -1;
+        }
+        if (-2 == frame_size) {
+            printf("ERROR: receiveInformationFrame timed out.\n");
             return -1;
         }
 
@@ -128,7 +197,6 @@ int llread(unsigned char *packet) {
             printf("ERROR: byteDeStuff failed.\n");
             return -1;
         }
-
         int data_begin = 4;
         int data_end = frame_size - 2;
         unsigned char received_bcc2 = frame[data_end];
@@ -138,10 +206,13 @@ int llread(unsigned char *packet) {
             checked_bcc2 ^= frame[i];
         }
 
+        printf("[llread] Frame number check: expected=%d, got=%d\n", frame_number, frame[2] & C_FRAME(frame_number) ? 1 : 0);
+        printf("[llread] BCC2 check: expected=0x%02X, got=0x%02X\n", checked_bcc2, received_bcc2);
+
         if (frameIsType(frame, C_FRAME(frame_number))) {
             if (checked_bcc2 == received_bcc2) {
+                printf("[llread] SUCCESS - valid frame received\n");
                 // Success
-                // Correct bcc2 and frame_number
                 int data_size = data_end - data_begin;
                 memcpy(packet, &frame[data_begin], data_size);
                 frame_number = !frame_number;
@@ -150,30 +221,25 @@ int llread(unsigned char *packet) {
                     printf("ERROR: sendControlFrame failed.\n");
                     return -1;
                 }
-
+                printf("[llread] Sent RR(%d)\n", frame_number);
                 return data_size;
             } else {
+                printf("[llread] BCC2 mismatch - sending REJ(%d)\n", frame_number);
                 // BCC2 failed
-                // Send REJ frame and retry
                 if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_REJ(frame_number))) {
                     printf("ERROR: sendControlFrame failed.\n");
                     return -1;
                 }
             }
         } else {
+            printf("[llread] Wrong frame number - sending RR(%d)\n", frame_number);
             // Wrong frame number
-            // Send RR(frame_number) and retry
             if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_RR(frame_number))) {
                 printf("ERROR: sendControlFrame failed.\n");
                 return -1;
             }
         }
-
-        retriesLeft--;
     }
-
-    printf("ERROR: Max retries exceeded.\n");
-    return -1;
 }
 
 ////////////////////////////////////////////////
@@ -184,52 +250,128 @@ int llclose() {
     unsigned char receivedFrame[CONTROL_FRAME_SIZE];
 
     if (LlTx == parameters.role) {
-        // Send DISC frame
-        if (-1 == sendControlFrame(sentFrame, A_SEND_TRANSMITTER, C_DISC)) {
-            printf("ERROR: sendControlFrame failed.\n");
-            return -1;
-        }
+        resetAlarm();
+        // Send DISC frame (with timeout)
+        while (alarmState.alarmCount < parameters.nRetransmissions) {
+            setAlarm(parameters.timeout);
 
-        // Receive DISC frame
-        ControlState state = CONTROL_START;
-        do {
-            if (-1 == receiveControlFrame(receivedFrame, &state)) {
-                printf("ERROR: receiveControlFrame failed.\n");
+            if (-1 == sendControlFrame(sentFrame, A_SEND_TRANSMITTER, C_DISC)) {
+                printf("ERROR: sendControlFrame failed.\n");
+                removeAlarm();
+                if (-1 == closeSerialPort()) {
+                    printf("ERROR: closeSerialPort failed.\n");
+                }
                 return -1;
             }
-        } while (!frameIsType(receivedFrame, C_DISC));
 
-        // Send UA frame
-        if (-1 == sendControlFrame(sentFrame, A_REPLY_TRANSMITTER, C_UA)) {
-            printf("ERROR: sendControlFrame failed.\n");
-            return -1;
+            // Receive DISC frame, if any other discard it
+            ControlState state = CONTROL_START;
+            do {
+                int retv = receiveControlFrame(receivedFrame, &state, TRUE);
+                if (-1 == retv) {
+                    printf("ERROR: receiveControlFrame failed.\n");
+                    removeAlarm();
+                    if (-1 == closeSerialPort()) {
+                        printf("ERROR: closeSerialPort failed.\n");
+                    }
+                    return -1;
+                }
+                if (-2 == retv) {
+                    break;
+                }
+            } while (TRUE != frameIsType(receivedFrame, C_DISC));
+
+            // Received the correct type of control frame
+            if (TRUE == frameIsType(receivedFrame, C_DISC)) {
+                removeAlarm();
+
+                // Send UA frame
+                if (-1 == sendControlFrame(sentFrame, A_REPLY_TRANSMITTER, C_UA)) {
+                    printf("ERROR: sendControlFrame failed.\n");
+                    if (-1 == closeSerialPort()) {
+                        printf("ERROR: closeSerialPort failed.\n");
+                    }
+                    return -1;
+                }
+
+                return closeSerialPort();
+            }
+
+            // If it did not receive the correct frame type then it must have timed out
         }
 
     } else {
         // Receive DISC frame
         ControlState state = CONTROL_START;
-        do {
-            if (-1 == receiveControlFrame(receivedFrame, &state)) {
-                printf("ERROR: receiveControlFrame failed.\n");
-                return -1;
-            }
-        } while (!frameIsType(receivedFrame, C_DISC));
+        int retv = receiveControlFrame(receivedFrame, &state, FALSE);
 
-        // Send DISC frame
-        if (-1 == sendControlFrame(sentFrame, A_SEND_RECEIVER, C_DISC)) {
-            printf("ERROR: sendControlFrame failed.\n");
+        if (-1 == retv) {
+            printf("ERROR: receiveControlFrame failed.\n");
+            if (-1 == closeSerialPort()) {
+                printf("ERROR: closeSerialPort failed.\n");
+            }
+            return -1;
+        }
+        if (-2 == retv) {
+            printf("ERROR: receiveControlFrame timed out.\n");
+            if (-1 == closeSerialPort()) {
+                printf("ERROR: closeSerialPort failed.\n");
+            }
             return -1;
         }
 
-        // Receive UA frame
-        state = CONTROL_START;
-        do {
-            if (-1 == receiveControlFrame(receivedFrame, &state)) {
-                printf("ERROR: receiveControlFrame failed.\n");
+        if (TRUE != frameIsType(receivedFrame, C_DISC)) {
+            printf("ERROR: received a non DISC frame.\n");
+            if (-1 == closeSerialPort()) {
+                printf("ERROR: closeSerialPort failed.\n");
+            }
+            return -1;
+        }
+
+        resetAlarm();
+        // Send DISC frame (with timeout)
+        while (alarmState.alarmCount < parameters.nRetransmissions) {
+            setAlarm(parameters.timeout);
+
+            if (-1 == sendControlFrame(sentFrame, A_SEND_TRANSMITTER, C_DISC)) {
+                printf("ERROR: sendControlFrame failed.\n");
+                removeAlarm();
+                if (-1 == closeSerialPort()) {
+                    printf("ERROR: closeSerialPort failed.\n");
+                }
                 return -1;
             }
-        } while (!frameIsType(receivedFrame, C_UA));
+
+            // Receive UA frame, if any other discard it
+            state = CONTROL_START;
+            do {
+                int retv = receiveControlFrame(receivedFrame, &state, TRUE);
+                if (-1 == retv) {
+                    printf("ERROR: receiveControlFrame failed.\n");
+                    removeAlarm();
+                    if (-1 == closeSerialPort()) {
+                        printf("ERROR: closeSerialPort failed.\n");
+                    }
+                    return -1;
+                }
+                if (-2 == retv) {
+                    break;
+                }
+            } while (TRUE != frameIsType(receivedFrame, C_UA));
+
+            // Received the correct type of control frame
+            if (TRUE == frameIsType(receivedFrame, C_UA)) {
+                removeAlarm();
+                return closeSerialPort();
+            }
+
+            // If it did not receive the correct frame type then it must have timed out
+        }
     }
 
-    return closeSerialPort();
+    printf("ERROR: Timed out while trying to close connection.\n");
+    if (-1 == closeSerialPort()) {
+        printf("ERROR: closeSerialPort failed.\n");
+    }
+    return -1;
 }

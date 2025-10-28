@@ -56,6 +56,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
             return;
         }
 
+        /*debug*/ printf("LinkLayer opening.\n");
+
         if (-1 == llopen(params)) {
             printf("ERROR: Couldn't open connection.\n");
             if (0 != fclose(file)) {
@@ -79,6 +81,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
         }
 
         /*debug*/ printf("Sent a start packet.\n");
+        /*debug*/ int sent = 0;
+        /*debug*/ int total = fileSize / MAX_DATA_FIELD_SIZE + (fileSize % MAX_DATA_FIELD_SIZE > 0);
 
         // Send file information packets
         while (TRUE) {
@@ -104,7 +108,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
                 printf("ERROR: llwrite failed.\n");
                 goto cleanup;
             }
-            /*debug*/ printf("Sent an information packet.\n");
+            /*debug*/ printf("Sent an information packet, %d/%d.\n", ++sent, total);
         }
 
         // Send end packet
@@ -123,6 +127,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
 
     } else {
         LinkLayer params = buildLinkLayer(serialPort, LlRx, baudRate, nTries, timeout);
+
+        /*debug*/ printf("LinkLayer opening.\n");
 
         if (-1 == llopen(params)) {
             printf("ERROR: Couldn't open connection.\n");
