@@ -37,21 +37,17 @@ int llopen(LinkLayer connectionParameters) {
     if (LlTx == parameters.role) {
         // Send SET frame (with timeout)
         while (alarmState.alarmCount < parameters.nRetransmissions) {
-            printf("Sending SET frame\n");
             if (-1 == sendControlFrame(sentFrame, A_SEND_TRANSMITTER, C_SET)) {
                 printf("ERROR: sendControlFrame failed.\n");
                 removeAlarm();
                 return -1;
             }
-            printf("Sent SET frame\n");
 
             setAlarm(parameters.timeout);
             // Receive UA frame, if any other discard it
             ControlState state = CONTROL_START;
             do {
-                printf("receiving UA frame\n");
                 int retv = receiveControlFrame(receivedFrame, &state, TRUE);
-                printf("received UA frame\n");
                 if (-1 == retv) {
                     printf("ERROR: receiveControlFrame failed.\n");
                     removeAlarm();
@@ -124,10 +120,11 @@ int llwrite(const unsigned char *buf, int bufSize) {
     }
 
     resetAlarm();
+    int attempts = 0;
     while (alarmState.alarmCount < parameters.nRetransmissions) {
         setAlarm(parameters.timeout);
 
-        printf("[llwrite] Attempt #%d - sending frame with number %d\n", alarmState.alarmCount, frame_number);
+        printf("[ll] Attempt #%d, Timeouts #%d - sending frame number %d.\n", attempts, alarmState.alarmCount, frame_number);
 
         if (-1 == writeBytesSerialPort(sentFrame, new_frame_size)) {
             printf("ERROR: writeBytesSerialPort failed.\n");
@@ -152,12 +149,17 @@ int llwrite(const unsigned char *buf, int bufSize) {
 
         if (frameIsType(receivedFrame, C_RR(!frame_number))) {
             frame_number = !frame_number;
-            printf("[llwrite] SUCCESS - frame sent successfully\n");
+            printf("[ll] Received RR(%d) - Success.\n", frame_number);
             removeAlarm();
             return 0;
+        } else if (frameIsType(receivedFrame, C_RR(frame_number))) {
+            printf("[ll] Received RR(%d) - Resend frame.\n", frame_number);
+        } else if (frameIsType(receivedFrame, C_REJ(frame_number))) {
+            printf("[ll] Received REJ(%d) - Resend frame.\n", frame_number);
         }
 
         // Rej frame_number and RR frame_number have the same behaviour, we need to resend the same frame
+        attempts++;
     }
 
     removeAlarm();
@@ -172,10 +174,9 @@ int llwrite(const unsigned char *buf, int bufSize) {
 int llread(unsigned char *packet) {
     unsigned char frame[CONTROL_FRAME_SIZE + 2 * (MAX_PAYLOAD_SIZE + 1)];
 
-    int attempt = 0;
+    int attempts = 0;
     while (TRUE) {
-        attempt++;
-        printf("[llread] Attempt #%d - waiting for frame with number %d\n", attempt, frame_number);
+        printf("[ll] Attempt #%d - waiting for frame number %d.\n", attempts, frame_number);
 
         // Receive I frame
         InformationState state = INFORMATION_START;
@@ -205,25 +206,20 @@ int llread(unsigned char *packet) {
             checked_bcc2 ^= frame[i];
         }
 
-        printf("[llread] Frame number check: expected=%d, got=%d\n", frame_number, frame[2] & C_FRAME(frame_number) ? 1 : 0);
-        printf("[llread] BCC2 check: expected=0x%02X, got=0x%02X\n", checked_bcc2, received_bcc2);
-
         if (frameIsType(frame, C_FRAME(frame_number))) {
             if (checked_bcc2 == received_bcc2) {
-                printf("[llread] SUCCESS - valid frame received\n");
-                // Success
                 int data_size = data_end - data_begin;
                 memcpy(packet, &frame[data_begin], data_size);
                 frame_number = !frame_number;
-
+                // Success
                 if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_RR(frame_number))) {
                     printf("ERROR: sendControlFrame failed.\n");
                     return -1;
                 }
-                printf("[llread] Sent RR(%d)\n", frame_number);
+                printf("[ll] Sent RR(%d) - Success.\n", frame_number);
                 return data_size;
             } else {
-                printf("[llread] BCC2 mismatch - sending REJ(%d)\n", frame_number);
+                printf("[ll] Sent REJ(%d) - BCC2 mismatch.\n", frame_number);
                 // BCC2 failed
                 if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_REJ(frame_number))) {
                     printf("ERROR: sendControlFrame failed.\n");
@@ -231,13 +227,14 @@ int llread(unsigned char *packet) {
                 }
             }
         } else {
-            printf("[llread] Wrong frame number - sending RR(%d)\n", frame_number);
+            printf("[ll] Sent RR(%d) - Wrong frame.\n", frame_number);
             // Wrong frame number
             if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_RR(frame_number))) {
                 printf("ERROR: sendControlFrame failed.\n");
                 return -1;
             }
         }
+        attempts++;
     }
 }
 
