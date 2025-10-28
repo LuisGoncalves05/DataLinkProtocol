@@ -1,6 +1,6 @@
 #include "frame.h"
-#include "link_layer_utils.h"
 #include "alarm.h"
+#include "link_layer_utils.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -130,11 +130,6 @@ int sendControlFrame(unsigned char *frame, int addressField, int controlField) {
 }
 
 int frameIsType(unsigned char *frame, int controlField) {
-    if (NULL == frame) {
-        printf("ERROR: NULL parameter frame.\n");
-        return -1;
-    }
-
     return frame[2] == controlField;
 }
 
@@ -175,7 +170,7 @@ int receiveInformationFrame(unsigned char *frame, InformationState *state) {
     unsigned int idx = 0;
 
     while (INFORMATION_STOP != *state) {
-        //printf("trying to receive information frame.\n");
+        // printf("trying to receive information frame.\n");
         int read = readByteSerialPort(&byte);
         if (-1 == read) {
             printf("ERROR: readByteSerialPort failed.\n");

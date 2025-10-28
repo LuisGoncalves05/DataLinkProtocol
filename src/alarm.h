@@ -1,6 +1,7 @@
 #ifndef _ALARM_H_
 #define _ALARM_H_
 
+// Struct that stores the state of the alarm.
 struct AlarmState {
     int alarmOn;
     int alarmCount;
@@ -13,6 +14,7 @@ extern struct AlarmState alarmState;
 void alarmHandler(int signal);
 
 // Sets up the handler for SIGALRM.
+// Return 0 on success or -1 on error.
 int setupAlarm();
 
 // Starts the alarm.

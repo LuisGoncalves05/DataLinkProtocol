@@ -60,10 +60,10 @@ int llopen(LinkLayer connectionParameters) {
                 if (-2 == retv) {
                     break;
                 }
-            } while (TRUE != frameIsType(receivedFrame, C_UA));
+            } while (!frameIsType(receivedFrame, C_UA));
 
             // Received the correct type of control frame
-            if (TRUE == frameIsType(receivedFrame, C_UA)) {
+            if (frameIsType(receivedFrame, C_UA)) {
                 removeAlarm();
                 return 0;
             }
@@ -89,7 +89,7 @@ int llopen(LinkLayer connectionParameters) {
             return -1;
         }
 
-        if (TRUE != frameIsType(receivedFrame, C_SET)) {
+        if (!frameIsType(receivedFrame, C_SET)) {
             printf("ERROR: received a non SET frame.\n");
             return -1;
         }
@@ -164,7 +164,6 @@ int llwrite(const unsigned char *buf, int bufSize) {
     printf("ERROR: Timed out while trying to send frame.\n");
     return -1;
 }
-
 
 ////////////////////////////////////////////////
 // LLREAD
@@ -279,10 +278,10 @@ int llclose() {
                 if (-2 == retv) {
                     break;
                 }
-            } while (TRUE != frameIsType(receivedFrame, C_DISC));
+            } while (!frameIsType(receivedFrame, C_DISC));
 
             // Received the correct type of control frame
-            if (TRUE == frameIsType(receivedFrame, C_DISC)) {
+            if (frameIsType(receivedFrame, C_DISC)) {
                 removeAlarm();
 
                 // Send UA frame
@@ -320,7 +319,7 @@ int llclose() {
             return -1;
         }
 
-        if (TRUE != frameIsType(receivedFrame, C_DISC)) {
+        if (!frameIsType(receivedFrame, C_DISC)) {
             printf("ERROR: received a non DISC frame.\n");
             if (-1 == closeSerialPort()) {
                 printf("ERROR: closeSerialPort failed.\n");
@@ -357,10 +356,10 @@ int llclose() {
                 if (-2 == retv) {
                     break;
                 }
-            } while (TRUE != frameIsType(receivedFrame, C_UA));
+            } while (!frameIsType(receivedFrame, C_UA));
 
             // Received the correct type of control frame
-            if (TRUE == frameIsType(receivedFrame, C_UA)) {
+            if (frameIsType(receivedFrame, C_UA)) {
                 removeAlarm();
                 return closeSerialPort();
             }
