@@ -148,7 +148,6 @@ int receiveControlFrame(unsigned char *frame, ControlState *state, int timeout) 
         int read = readByteSerialPort(&byte);
         if (-1 == read) {
             printf("ERROR: readByteSerialPort failed.\n");
-            return -1;
         }
         if (1 == read && -1 == nextStateControl(state, &byte, frame, &idx)) {
             printf("ERROR: nextStateControl failed.\n");
@@ -170,11 +169,9 @@ int receiveInformationFrame(unsigned char *frame, InformationState *state) {
     unsigned int idx = 0;
 
     while (INFORMATION_STOP != *state) {
-        // printf("trying to receive information frame.\n");
         int read = readByteSerialPort(&byte);
         if (-1 == read) {
             printf("ERROR: readByteSerialPort failed.\n");
-            return -1;
         }
         if (1 == read && -1 == nextStateInformation(state, &byte, frame, &idx)) {
             printf("ERROR: nextStateInformation failed.\n");

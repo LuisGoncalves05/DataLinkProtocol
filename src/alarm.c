@@ -12,7 +12,13 @@ void alarmHandler(int signal) {
 }
 
 int setupAlarm() {
-    return SIG_ERR == signal(SIGALRM, alarmHandler) ? -1 : 0;
+    struct sigaction act = {0};
+    act.sa_handler = &alarmHandler;
+    if (-1 == sigaction(SIGALRM, &act, NULL)) {
+        return -1;
+    }
+
+    return 0;
 }
 
 void setAlarm(int timeout) {
