@@ -3,9 +3,11 @@
 #include "application_layer.h"
 #include "link_layer.h"
 #include "packet.h"
+#include "stats.h"
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 static long getFileSize(FILE *file) {
     if (-1 == fseek(file, 0L, SEEK_END)) {
@@ -34,10 +36,16 @@ static LinkLayer buildLinkLayer(const char *serialPort, LinkLayerRole role, int 
 
 void applicationLayer(const char *serialPort, const char *role, int baudRate, int nTries, int timeout, const char *filename) {
     FILE *file;
+    LinkLayer params;
     unsigned char packet[MAX_PAYLOAD_SIZE];
 
+    if (-1 == initStats()) {
+        printf("ERROR: initStats failed");
+        return;
+    }
+
     if (0 == strcmp(role, "tx")) {
-        LinkLayer params = buildLinkLayer(serialPort, LlTx, baudRate, nTries, timeout);
+        params = buildLinkLayer(serialPort, LlTx, baudRate, nTries, timeout);
 
         file = fopen(filename, "rb");
         if (NULL == file) {
@@ -103,6 +111,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
                 printf("ERROR: Building data packet failed.\n");
                 goto cleanup;
             }
+            statistics.dataBytesSent += read;
 
             if (-1 == llwrite(packet, size)) {
                 printf("ERROR: llwrite failed.\n");
@@ -126,7 +135,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
         /*debug*/ printf("Sent an end packet.\n");
 
     } else {
-        LinkLayer params = buildLinkLayer(serialPort, LlRx, baudRate, nTries, timeout);
+        params = buildLinkLayer(serialPort, LlRx, baudRate, nTries, timeout);
 
         /*debug*/ printf("LinkLayer opening.\n");
 
@@ -168,19 +177,24 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
         }
         /*debug*/ printf("File opened successfully.\n");
 
-        if (-1 == llread(packet)) {
-            printf("ERROR: Couldn't read file.\n");
-            goto cleanup;
-        }
-
         // Receive all other packets
-        while (!isEndPacket(packet)) {
+        while (TRUE) {
+            if (-1 == llread(packet)) {
+                printf("ERROR: Couldn't read file.\n");
+                goto cleanup;
+            }
+
+            if (isEndPacket(packet)) {
+                break;
+            }
+
             size_t read;
-            unsigned char data[MAX_DATA_FIELD_SIZE];
-            if (-1 == readDataPacket(packet, data, &read)) {
+            unsigned char *data = readDataPacket(packet, &read);
+            if (NULL == data) {
                 printf("ERROR: Couldn't read data packet\n");
                 goto cleanup;
             }
+
             /*debug*/ printf("Received an information packet.\n");
 
             size_t written = fwrite(data, sizeof(unsigned char), read, file);
@@ -188,10 +202,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
                 printf("ERROR: Error in %s.\n", filename);
                 goto cleanup;
             }
-            if (-1 == llread(packet)) {
-                printf("ERROR: Couldn't read file.\n");
-                goto cleanup;
-            }
+            statistics.dataBytesSent += read;
         }
 
         /*debug*/ printf("Received an end packet.\n");
@@ -207,4 +218,9 @@ cleanup:
         printf("ERROR: Couldn't close %s.\n", filename);
     }
     /*debug*/ printf("File closed successfully.\n");
+
+    if (-1 == printStats(&params)) {
+        printf("ERROR: printStats failed.\n");
+        return;
+    }
 }

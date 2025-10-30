@@ -22,24 +22,22 @@ int buildDataPacket(unsigned char *packet, unsigned char *data, size_t size) {
     return size + 3;
 }
 
-int readDataPacket(unsigned char *packet, unsigned char *data, size_t *size) {
-    if (NULL == packet || NULL == data || NULL == size) {
-        printf("ERROR: NULL parameter packet:%p data:%p size:%p.\n", packet, data, size);
-        return -1;
+unsigned char *readDataPacket(unsigned char *packet, size_t *size) {
+    if (NULL == packet|| NULL == size) {
+        printf("ERROR: NULL parameter packet:%p size:%p.\n", packet, size);
+        return NULL;
     }
 
     PacketControlField control = packet[0];
     if (PCF_DATA != control) {
         printf("ERROR: Unknown packet control field=%d.\n", control);
-        return -1;
+        return NULL;
     }
 
     *size = (packet[1] << 8) + packet[2];
     packet += 3;
 
-    memcpy(data, packet, *size);
-
-    return 0;
+    return packet;
 }
 
 int buildControlPacket(unsigned char *packet, PacketControlField control, size_t size, const char *filename) {

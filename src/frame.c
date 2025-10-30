@@ -1,6 +1,7 @@
 #include "frame.h"
 #include "alarm.h"
 #include "link_layer_utils.h"
+#include "stats.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -121,10 +122,13 @@ int sendControlFrame(unsigned char *frame, int addressField, int controlField) {
         return -1;
     }
 
-    if (-1 == writeBytesSerialPort(frame, CONTROL_FRAME_SIZE)) {
+    int retv = writeBytesSerialPort(frame, CONTROL_FRAME_SIZE);
+    if (-1 == retv) {
         printf("ERROR: writeBytesSerialPort failed.\n");
         return -1;
     }
+
+    statistics.bytesSent += retv;
 
     return 0;
 }
@@ -147,8 +151,14 @@ int receiveControlFrame(unsigned char *frame, ControlState *state, int timeout) 
     while ((!timeout || alarmState.alarmOn) && CONTROL_STOP != *state) {
         int read = readByteSerialPort(&byte);
         if (-1 == read) {
-            printf("ERROR: readByteSerialPort failed.\n");
+            if (alarmState.alarmOn) {
+                printf("ERROR: readByteSerialPort failed.\n");
+            } else {
+                printf("[ll] readByteSerialPort interrupted by alarm.\n");
+            }
         }
+
+        statistics.bytesSent += read;
         if (1 == read && -1 == nextStateControl(state, &byte, frame, &idx)) {
             printf("ERROR: nextStateControl failed.\n");
             return -1;
@@ -156,7 +166,7 @@ int receiveControlFrame(unsigned char *frame, ControlState *state, int timeout) 
     }
 
     if (CONTROL_STOP != *state) {
-        printf("ERROR: receiveControlFrame timed out.\n");
+        printf("[ll] receiveControlFrame timed out.\n");
         return -2;
     }
 
@@ -173,6 +183,8 @@ int receiveInformationFrame(unsigned char *frame, InformationState *state) {
         if (-1 == read) {
             printf("ERROR: readByteSerialPort failed.\n");
         }
+        statistics.bytesSent += read;
+
         if (1 == read && -1 == nextStateInformation(state, &byte, frame, &idx)) {
             printf("ERROR: nextStateInformation failed.\n");
             return -1;

@@ -5,6 +5,7 @@
 #include "frame.h"
 #include "link_layer_utils.h"
 #include "serial_port.h"
+#include "stats.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -126,10 +127,13 @@ int llwrite(const unsigned char *buf, int bufSize) {
 
         printf("[ll] Attempt #%d, Timeouts #%d - sending frame number %d.\n", attempts, alarmState.alarmCount, frame_number);
 
-        if (-1 == writeBytesSerialPort(sentFrame, new_frame_size)) {
+        int read = writeBytesSerialPort(sentFrame, new_frame_size);
+        if (-1 == read) {
             printf("ERROR: writeBytesSerialPort failed.\n");
             return -1;
         }
+
+        statistics.bytesSent += read;
 
         // Receive Rej or RR(other frame_number) frame
         ControlState state = CONTROL_START;
@@ -324,45 +328,15 @@ int llclose() {
             return -1;
         }
 
-        resetAlarm();
-        // Send DISC frame (with timeout)
-        while (alarmState.alarmCount < parameters.nRetransmissions) {
-            setAlarm(parameters.timeout);
-
-            if (-1 == sendControlFrame(sentFrame, A_SEND_TRANSMITTER, C_DISC)) {
-                printf("ERROR: sendControlFrame failed.\n");
-                removeAlarm();
-                if (-1 == closeSerialPort()) {
-                    printf("ERROR: closeSerialPort failed.\n");
-                }
-                return -1;
+        if (-1 == sendControlFrame(sentFrame, A_SEND_TRANSMITTER, C_DISC)) {
+            printf("ERROR: sendControlFrame failed.\n");
+            if (-1 == closeSerialPort()) {
+                printf("ERROR: closeSerialPort failed.\n");
             }
-
-            // Receive UA frame, if any other discard it
-            state = CONTROL_START;
-            do {
-                int retv = receiveControlFrame(receivedFrame, &state, TRUE);
-                if (-1 == retv) {
-                    printf("ERROR: receiveControlFrame failed.\n");
-                    removeAlarm();
-                    if (-1 == closeSerialPort()) {
-                        printf("ERROR: closeSerialPort failed.\n");
-                    }
-                    return -1;
-                }
-                if (-2 == retv) {
-                    break;
-                }
-            } while (!frameIsType(receivedFrame, C_UA));
-
-            // Received the correct type of control frame
-            if (frameIsType(receivedFrame, C_UA)) {
-                removeAlarm();
-                return closeSerialPort();
-            }
-
-            // If it did not receive the correct frame type then it must have timed out
+            return -1;
         }
+
+        return 0;
     }
 
     printf("ERROR: Timed out while trying to close connection.\n");
