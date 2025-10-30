@@ -55,6 +55,7 @@ int llopen(LinkLayer connectionParameters) {
                     return -1;
                 }
                 if (-2 == retv) {
+                    memset(receivedFrame, 0, CONTROL_FRAME_SIZE);
                     break;
                 }
             } while (!frameIsType(receivedFrame, C_UA));
@@ -135,7 +136,7 @@ int llwrite(const unsigned char *buf, int bufSize) {
 
         statistics.bytesSent += read;
 
-        // Receive Rej or RR(other frame_number) frame
+        // Receive Rej or RR frame
         ControlState state = CONTROL_START;
         do {
             int retv = receiveControlFrame(receivedFrame, &state, TRUE);
@@ -145,24 +146,21 @@ int llwrite(const unsigned char *buf, int bufSize) {
                 return -1;
             }
             if (-2 == retv) {
+                memset(receivedFrame, 0, CONTROL_FRAME_SIZE);
                 break;
             }
-        } while (!frameIsType(receivedFrame, C_REJ(frame_number)) &&
-                 !frameIsType(receivedFrame, C_RR(0)) &&
-                 !frameIsType(receivedFrame, C_RR(1)));
+        } while (!frameIsType(receivedFrame, C_RR(!frame_number)) &&
+                 !frameIsType(receivedFrame, C_REJ(frame_number)));
 
         if (frameIsType(receivedFrame, C_RR(!frame_number))) {
             frame_number = !frame_number;
             printf("[ll] Received RR(%d) - Success.\n", frame_number);
             removeAlarm();
             return 0;
-        } else if (frameIsType(receivedFrame, C_RR(frame_number))) {
-            printf("[ll] Received RR(%d) - Resend frame.\n", frame_number);
         } else if (frameIsType(receivedFrame, C_REJ(frame_number))) {
             printf("[ll] Received REJ(%d) - Resend frame.\n", frame_number);
         }
 
-        // Rej frame_number and RR frame_number have the same behaviour, we need to resend the same frame
         attempts++;
     }
 
@@ -277,6 +275,7 @@ int llclose() {
                     return -1;
                 }
                 if (-2 == retv) {
+                    memset(receivedFrame, 0, CONTROL_FRAME_SIZE);
                     break;
                 }
             } while (!frameIsType(receivedFrame, C_DISC));
