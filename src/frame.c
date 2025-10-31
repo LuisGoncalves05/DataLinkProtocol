@@ -128,7 +128,7 @@ int sendControlFrame(unsigned char *frame, int addressField, int controlField) {
         return -1;
     }
 
-    statistics.bytesSent += retv;
+    statistics.bytes += retv;
 
     return 0;
 }
@@ -158,7 +158,7 @@ int receiveControlFrame(unsigned char *frame, ControlState *state, int timeout) 
             }
         }
 
-        statistics.bytesSent += read;
+        statistics.bytes += read;
         if (1 == read && -1 == nextStateControl(state, &byte, frame, &idx)) {
             printf("ERROR: nextStateControl failed.\n");
             return -1;
@@ -166,6 +166,7 @@ int receiveControlFrame(unsigned char *frame, ControlState *state, int timeout) 
     }
 
     if (CONTROL_STOP != *state) {
+        statistics.timeouts++;
         printf("[ll] receiveControlFrame timed out.\n");
         return -2;
     }
@@ -183,7 +184,7 @@ int receiveInformationFrame(unsigned char *frame, InformationState *state) {
         if (-1 == read) {
             printf("ERROR: readByteSerialPort failed.\n");
         }
-        statistics.bytesSent += read;
+        statistics.bytes += read;
 
         if (1 == read && -1 == nextStateInformation(state, &byte, frame, &idx)) {
             printf("ERROR: nextStateInformation failed.\n");

@@ -111,7 +111,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
                 printf("ERROR: Building data packet failed.\n");
                 goto cleanup;
             }
-            statistics.dataBytesSent += read;
+            statistics.dataBytes += read;
 
             if (-1 == llwrite(packet, size)) {
                 printf("ERROR: llwrite failed.\n");
@@ -202,7 +202,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate, in
                 printf("ERROR: Error in %s.\n", filename);
                 goto cleanup;
             }
-            statistics.dataBytesSent += read;
+            statistics.dataBytes += read;
         }
 
         /*debug*/ printf("Received an end packet.\n");

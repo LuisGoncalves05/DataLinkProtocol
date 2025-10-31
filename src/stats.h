@@ -7,16 +7,23 @@
 // Struct that stores the state of the alarm.
 struct Stats {
     struct timespec start, end;
+    int frames;
+    int rejFrames;
+    int timeouts;
     int baudRate;
-    int dataBytesSent;
-    int bytesSent;
+    int dataBytes;
+    int bytes;
 };
 
 // Global statistics intitialized in stats.c.
 extern struct Stats statistics;
 
+// Starts the collection of statistics.
+// Returns 0 on success or -1 on error.
 int initStats();
 
+// Prints the collected statistics.
+// Returns 0 on success or -1 on error.
 int printStats(LinkLayer *params);
 
 #endif

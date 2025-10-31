@@ -43,6 +43,7 @@ int llopen(LinkLayer connectionParameters) {
                 removeAlarm();
                 return -1;
             }
+            statistics.frames++;
 
             setAlarm(parameters.timeout);
             // Receive UA frame, if any other discard it
@@ -59,7 +60,7 @@ int llopen(LinkLayer connectionParameters) {
                     break;
                 }
             } while (!frameIsType(receivedFrame, C_UA));
-
+            
             // Received the correct type of control frame
             if (frameIsType(receivedFrame, C_UA)) {
                 removeAlarm();
@@ -91,6 +92,7 @@ int llopen(LinkLayer connectionParameters) {
             printf("ERROR: received a non SET frame.\n");
             return -1;
         }
+        statistics.frames++;
 
         // Send UA frame
         if (-1 == sendControlFrame(sentFrame, A_REPLY_RECEIVER, C_UA)) {
@@ -133,8 +135,8 @@ int llwrite(const unsigned char *buf, int bufSize) {
             printf("ERROR: writeBytesSerialPort failed.\n");
             return -1;
         }
-
-        statistics.bytesSent += read;
+        statistics.frames++;
+        statistics.bytes += read;
 
         // Receive Rej or RR frame
         ControlState state = CONTROL_START;
@@ -158,6 +160,7 @@ int llwrite(const unsigned char *buf, int bufSize) {
             removeAlarm();
             return 0;
         } else if (frameIsType(receivedFrame, C_REJ(frame_number))) {
+            statistics.rejFrames++;
             printf("[ll] Received REJ(%d) - Resend frame.\n", frame_number);
         }
 
@@ -192,6 +195,7 @@ int llread(unsigned char *packet) {
             printf("ERROR: receiveInformationFrame timed out.\n");
             return -1;
         }
+        statistics.frames++;
 
         // Destuff I frame
         frame_size = byteDeStuff(frame, frame_size);
@@ -221,6 +225,8 @@ int llread(unsigned char *packet) {
                 printf("[ll] Sent RR(%d) - Success.\n", frame_number);
                 return data_size;
             } else {
+                statistics.rejFrames++;
+
                 printf("[ll] Sent REJ(%d) - BCC2 mismatch.\n", frame_number);
                 // BCC2 failed
                 if (-1 == sendControlFrame(frame, A_REPLY_RECEIVER, C_REJ(frame_number))) {
@@ -261,6 +267,7 @@ int llclose() {
                 }
                 return -1;
             }
+            statistics.frames++;
 
             // Receive DISC frame, if any other discard it
             ControlState state = CONTROL_START;
@@ -292,6 +299,7 @@ int llclose() {
                     }
                     return -1;
                 }
+                statistics.frames++;
 
                 return closeSerialPort();
             }
@@ -311,6 +319,7 @@ int llclose() {
             }
             return -1;
         }
+
         if (-2 == retv) {
             printf("ERROR: receiveControlFrame timed out.\n");
             if (-1 == closeSerialPort()) {
@@ -326,6 +335,7 @@ int llclose() {
             }
             return -1;
         }
+        statistics.frames++;
 
         if (-1 == sendControlFrame(sentFrame, A_SEND_TRANSMITTER, C_DISC)) {
             printf("ERROR: sendControlFrame failed.\n");

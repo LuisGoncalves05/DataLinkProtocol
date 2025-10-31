@@ -4,23 +4,15 @@
 struct Stats statistics = {
     .start = {0, 0},
     .end = {0, 0},
+    .frames = 0,
+    .rejFrames = 0,
+    .timeouts = 0,
     .baudRate = 0,
-    .dataBytesSent = 0,
-    .bytesSent = 0};
+    .dataBytes = 0,
+    .bytes = 0};
 
 int initStats() {
-    statistics.start.tv_sec = 0;
-    statistics.start.tv_nsec = 0;
-    statistics.end.tv_sec = 0;
-    statistics.end.tv_nsec = 0;
-    statistics.dataBytesSent = 0;
-    statistics.bytesSent = 0;
-
-    if (-1 == clock_gettime(CLOCK_MONOTONIC, &statistics.start)) {
-        return -1;
-    }
-
-    return 0;
+    return clock_gettime(CLOCK_MONOTONIC, &statistics.start);
 }
 
 int printStats(LinkLayer *params) {
@@ -34,15 +26,19 @@ int printStats(LinkLayer *params) {
 
     statistics.baudRate = params->baudRate;
     double elapsed = (statistics.end.tv_sec - statistics.start.tv_sec) + (statistics.end.tv_nsec - statistics.start.tv_nsec) / 1000000000.0;
-    double bitrate = statistics.bytesSent * 8.0 / elapsed;
-    const char *role = params->role == LlTx ? "Sent:    " : "Received:";
+    double bitrate = statistics.bytes * 8.0 / elapsed;
+    const char *role = params->role == LlTx ? "Sent" : "Received";
+    const char *padding = params->role == LlTx ? "    " : "";
 
     printf("\n");
     printf("╔═════════════════════════════════════╗\n");
     printf("║          TRANSMISSION STATS         ║\n");
     printf("╠═════════════════════════════════════╣\n");
-    printf("║ Data Bits %s  %10d b   ║\n", role, statistics.dataBytesSent * 8);
-    printf("║ Total Bits %s %10d b   ║\n", role, statistics.bytesSent * 8);
+    printf("║ Data Bits %s: %s %10d b   ║\n", role, padding, statistics.dataBytes * 8);
+    printf("║ Total Bits %s:%s %10d b   ║\n", role, padding, statistics.bytes * 8);
+    printf("║ %s frames:    %s %10d     ║\n", role, padding, statistics.frames);
+    printf("║ Rejected frames:     %10d     ║\n", statistics.rejFrames);
+    printf("║ Timeouts:            %10d     ║\n", statistics.timeouts);
     printf("║ Elapsed Time:        %10.3f s   ║\n", elapsed);
     printf("║ Bitrate:             %10.2f bps ║\n", bitrate);
     printf("║ Baud Rate:           %10d bps ║\n", statistics.baudRate);
