@@ -26,7 +26,7 @@ int printStats(LinkLayer *params) {
 
     statistics.baudRate = params->baudRate;
     double elapsed = (statistics.end.tv_sec - statistics.start.tv_sec) + (statistics.end.tv_nsec - statistics.start.tv_nsec) / 1000000000.0;
-    double bitrate = statistics.bytes * 8.0 / elapsed;
+    double bitrate = statistics.dataBytes * 8.0 / elapsed;
     const char *role = params->role == LlTx ? "Sent" : "Received";
     const char *padding = params->role == LlTx ? "    " : "";
 
