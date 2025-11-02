@@ -36,7 +36,7 @@ int printStats(LinkLayer *params) {
     printf("╠═════════════════════════════════════╣\n");
     printf("║ Data Bits %s: %s %10d b   ║\n", role, padding, statistics.dataBytes * 8);
     printf("║ Total Bits %s:%s %10d b   ║\n", role, padding, statistics.bytes * 8);
-    printf("║ %s frames:    %s %10d     ║\n", role, padding, statistics.frames);
+    printf("║ %s frames:    %s %10d     ║\n", role, padding, statistics.frames); // file content frames sent = received frames - rejected frames - 2 (start and end packets)
     printf("║ Rejected frames:     %10d     ║\n", statistics.rejFrames);
     printf("║ Timeouts:            %10d     ║\n", statistics.timeouts);
     printf("║ Elapsed Time:        %10.3f s   ║\n", elapsed);

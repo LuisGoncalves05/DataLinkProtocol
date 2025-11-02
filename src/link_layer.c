@@ -43,7 +43,6 @@ int llopen(LinkLayer connectionParameters) {
                 removeAlarm();
                 return -1;
             }
-            statistics.frames++;
 
             setAlarm(parameters.timeout);
             // Receive UA frame, if any other discard it
@@ -92,7 +91,6 @@ int llopen(LinkLayer connectionParameters) {
             printf("ERROR: received a non SET frame.\n");
             return -1;
         }
-        statistics.frames++;
 
         // Send UA frame
         if (-1 == sendControlFrame(sentFrame, A_REPLY_RECEIVER, C_UA)) {
@@ -267,7 +265,6 @@ int llclose() {
                 }
                 return -1;
             }
-            statistics.frames++;
 
             // Receive DISC frame, if any other discard it
             ControlState state = CONTROL_START;
@@ -299,7 +296,6 @@ int llclose() {
                     }
                     return -1;
                 }
-                statistics.frames++;
 
                 return closeSerialPort();
             }
@@ -335,7 +331,6 @@ int llclose() {
             }
             return -1;
         }
-        statistics.frames++;
 
         if (-1 == sendControlFrame(sentFrame, A_SEND_TRANSMITTER, C_DISC)) {
             printf("ERROR: sendControlFrame failed.\n");
